@@ -12,7 +12,7 @@ class AppConfig {
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://localhost:5001',
+    defaultValue: 'https://localhost:5003',
   );
 
   /// Timeouts for HTTP calls.
