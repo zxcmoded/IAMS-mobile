@@ -4,42 +4,41 @@ import 'package:equatable/equatable.dart';
 /// ProblemDetails `code` field. The UI branches on these — never on the
 /// human-readable `title`/`detail` or on the HTTP status alone.
 ///
-/// See: IAMS-backend/docs/api/F1-F15-auth-and-tenant-connections.md
+/// See: IAMS-backend/docs/api/activation-key-authentication.md
 class ApiErrorCode {
   const ApiErrorCode._();
 
   static const String validationFailed = 'validation_failed';
-  static const String invalidCredentials = 'invalid_credentials';
-  static const String accountInactive = 'account_inactive';
-  static const String twoFactorInvalid = 'two_factor_invalid';
-  static const String twoFactorExpired = 'two_factor_expired';
-  static const String twoFactorLocked = 'two_factor_locked';
-  static const String resendTooSoon = 'resend_too_soon';
-
-  /// 429 from `2fa/resend`: the total resend cap for this challenge is hit
-  /// (distinct from the `resend_too_soon` cooldown). Terminal — restart login.
-  static const String resendLimitReached = 'resend_limit_reached';
   static const String sessionExpired = 'session_expired';
 
-  /// 403 from `2fa/verify`: credentials + OTP were valid, but the user has no
-  /// company membership to sign in to. Terminal — restart login.
+  /// 401 from `POST /api/auth/activate`: the activation key does not resolve
+  /// to an active user. Deliberately the same code whether the key doesn't
+  /// exist at all or belongs to a deactivated account — do not attempt to
+  /// distinguish these cases in the UI beyond "that key isn't valid."
+  static const String activationKeyInvalid = 'activation_key_invalid';
+
+  /// 403 from `POST /api/auth/activate`: the key is valid but already bound
+  /// to a device other than the one presenting it. Terminal — do not
+  /// auto-retry. Recovery requires an administrator to reset the binding
+  /// out-of-band (`POST /api/admin/users/{userId}/activation/reset`); mobile
+  /// has no self-service UI for it.
+  static const String activationKeyAlreadyBound =
+      'activation_key_already_bound';
+
+  /// 403 from `POST /api/auth/activate`: the key is valid and this device is
+  /// now bound, but the user has no company membership to sign in to.
+  /// Terminal — retrying activation won't help without admin intervention.
   static const String noActiveCompany = 'no_active_company';
   static const String accessDenied = 'access_denied';
   static const String notFound = 'not_found';
-
-  /// 403 from `2fa/verify`: credentials + OTP were valid, but this device's
-  /// id doesn't match the device already bound to the account. The OTP
-  /// challenge is consumed server-side when this happens — terminal, restart
-  /// login. Reset requires an administrator; mobile has no self-service UI
-  /// for it.
-  static const String deviceAlreadyRegistered = 'device_already_registered';
 
   /// Synthetic code used when the failure is not an HTTP ProblemDetails
   /// response at all (socket error, timeout, DNS, TLS, etc.).
   static const String network = 'network_error';
 
-  /// Synthetic code for a bodyless / unparseable 429 (e.g. IP rate limiting on
-  /// login/2fa endpoints, which return a bare 429 with no ProblemDetails body).
+  /// Synthetic code for a bodyless / unparseable 429 (e.g. IP rate limiting
+  /// on `/api/auth/activate`, which returns a bare 429 with no ProblemDetails
+  /// body).
   static const String rateLimited = 'rate_limited';
 
   /// Synthetic code used when a response could not be parsed / was unexpected.

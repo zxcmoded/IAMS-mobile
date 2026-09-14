@@ -9,8 +9,8 @@ import 'session_refresher.dart';
 /// responsible for driving the app to the Session Expired screen.
 ///
 /// Only mounted on the *authenticated* Dio instance. The auth endpoints
-/// (login/verify/resend/refresh/logout) use a separate raw Dio and must never
-/// be retried by this interceptor.
+/// (activate/refresh/logout) use a separate raw Dio and must never be
+/// retried by this interceptor.
 class AuthInterceptor extends QueuedInterceptor {
   AuthInterceptor({required this._refresher, required this._retryClient});
 

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/data/models/auth_challenge.dart';
+import '../../features/auth/presentation/activation/activation_screen.dart';
 import '../../features/auth/presentation/controller/auth_controller.dart';
 import '../../features/auth/presentation/controller/auth_state.dart';
-import '../../features/auth/presentation/login/login_screen.dart';
 import '../../features/auth/presentation/session_expired/session_expired_screen.dart';
-import '../../features/auth/presentation/two_factor/two_factor_screen.dart';
 import '../../features/tenant/presentation/access/access_denied_screen.dart';
 import '../../features/tenant/presentation/access/cross_tenant_access_screen.dart';
 import '../../features/tenant/presentation/scope/company_selector_screen.dart';
@@ -16,8 +14,8 @@ import 'go_router_refresh_stream.dart';
 
 /// Builds the app router. Redirects are driven by [AuthController] state so the
 /// user is always on a screen consistent with the session lifecycle:
-/// unauthenticated → Login, sessionExpired → Session Expired, authenticated →
-/// the Company Selector.
+/// unauthenticated → Activation Key entry, sessionExpired → Session Expired,
+/// authenticated → the Company Selector.
 GoRouter createRouter(AuthController auth) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
@@ -30,15 +28,14 @@ GoRouter createRouter(AuthController auth) {
         return loc == AppRoutes.splash ? null : AppRoutes.splash;
       }
 
-      final onAuthFlow =
-          loc == AppRoutes.login || loc == AppRoutes.twoFactor;
+      final onAuthFlow = loc == AppRoutes.activation;
 
       if (status == AuthStatus.sessionExpired) {
         return loc == AppRoutes.sessionExpired ? null : AppRoutes.sessionExpired;
       }
 
       if (status == AuthStatus.unauthenticated) {
-        return onAuthFlow ? null : AppRoutes.login;
+        return onAuthFlow ? null : AppRoutes.activation;
       }
 
       // authenticated
@@ -55,13 +52,8 @@ GoRouter createRouter(AuthController auth) {
         builder: (_, _) => const _SplashScreen(),
       ),
       GoRoute(
-        path: AppRoutes.login,
-        builder: (_, _) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.twoFactor,
-        builder: (_, state) =>
-            TwoFactorScreen(challenge: state.extra as AuthChallenge),
+        path: AppRoutes.activation,
+        builder: (_, _) => const ActivationScreen(),
       ),
       GoRoute(
         path: AppRoutes.sessionExpired,

@@ -2,9 +2,10 @@ import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Supplies a stable, per-install `deviceId` sent as the optional field on
-/// login / verify / refresh. Generated once and persisted; not tied to any
-/// hardware identifier (privacy-friendly and survives contract's "optional").
+/// Supplies a stable, per-install `deviceId` sent on `activate` (required —
+/// the single enforcement point for device binding) and `refresh` (optional).
+/// Generated once and persisted; not tied to any hardware identifier
+/// (privacy-friendly, and the server performs no device attestation).
 abstract class DeviceIdProvider {
   Future<String> getDeviceId();
 }

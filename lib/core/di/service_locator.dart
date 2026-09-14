@@ -3,8 +3,8 @@ import 'package:get_it/get_it.dart';
 
 import '../../features/auth/data/auth_api.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/auth/presentation/activation/activation_cubit.dart';
 import '../../features/auth/presentation/controller/auth_controller.dart';
-import '../../features/auth/presentation/login/login_cubit.dart';
 import '../../features/tenant/data/tenant_api.dart';
 import '../../features/tenant/data/tenant_repository.dart';
 import '../../features/tenant/presentation/access/access_cubit.dart';
@@ -57,7 +57,8 @@ Future<void> configureDependencies() async {
       () => TenantRepository(sl<TenantApi>()));
 
   // Presentation cubits (new instance per screen).
-  sl.registerFactory<LoginCubit>(() => LoginCubit(sl<AuthRepository>()));
+  sl.registerFactory<ActivationCubit>(
+      () => ActivationCubit(sl<AuthRepository>()));
   sl.registerFactory<ScopeCubit>(() => ScopeCubit(sl<TenantRepository>()));
   sl.registerFactory<AccessCubit>(() => AccessCubit(sl<TenantRepository>()));
 }

@@ -45,7 +45,7 @@ class AuthController extends Cubit<AuthState> implements SessionRefresher {
     emit(AuthState(status: AuthStatus.authenticated, session: session));
   }
 
-  /// Persist and activate a session obtained from 2FA verify.
+  /// Persist and activate a session obtained from Activation Key entry.
   Future<void> onAuthenticated(AuthSession session) async {
     await _tokenStore.write(session);
     emit(AuthState(status: AuthStatus.authenticated, session: session));

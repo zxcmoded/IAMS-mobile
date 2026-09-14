@@ -1,5 +1,4 @@
 import 'package:iams_mobile/core/storage/token_store.dart';
-import 'package:iams_mobile/features/auth/data/models/auth_challenge.dart';
 import 'package:iams_mobile/features/auth/data/models/auth_session.dart';
 import 'package:iams_mobile/features/auth/data/models/auth_user.dart';
 
@@ -17,19 +16,6 @@ AuthSession buildSession({
     refreshTokenExpiresAt:
         refreshExpiry ?? DateTime.now().toUtc().add(const Duration(days: 30)),
     user: const AuthUser(id: 'u1', username: 'alice', displayName: 'Alice'),
-  );
-}
-
-AuthChallenge buildChallenge({
-  String challengeToken = 'challenge-1',
-  int resendAvailableInSeconds = 0,
-  String? devOtp = '123456',
-}) {
-  return AuthChallenge(
-    challengeToken: challengeToken,
-    expiresInSeconds: 300,
-    resendAvailableInSeconds: resendAvailableInSeconds,
-    devOtp: devOtp,
   );
 }
 

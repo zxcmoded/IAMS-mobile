@@ -4,8 +4,7 @@ class AppRoutes {
   const AppRoutes._();
 
   static const splash = '/';
-  static const login = '/login';
-  static const twoFactor = '/login/2fa';
+  static const activation = '/activation';
   static const sessionExpired = '/session-expired';
 
   static const companies = '/companies';

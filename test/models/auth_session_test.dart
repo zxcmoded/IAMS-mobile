@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:iams_mobile/features/auth/data/models/auth_challenge.dart';
 import 'package:iams_mobile/features/auth/data/models/auth_session.dart';
 
 void main() {
@@ -31,30 +30,6 @@ void main() {
 
       final wellBefore = DateTime.parse('2026-09-09T12:00:00+00:00');
       expect(session.isAccessTokenExpired(now: wellBefore), isFalse);
-    });
-  });
-
-  group('AuthChallenge', () {
-    test('parses devOtp and cooldown fields', () {
-      final c = AuthChallenge.fromJson({
-        'challengeToken': 'ct',
-        'expiresInSeconds': 300,
-        'resendAvailableInSeconds': 30,
-        'devOtp': '123456',
-      });
-      expect(c.challengeToken, 'ct');
-      expect(c.resendAvailableInSeconds, 30);
-      expect(c.devOtp, '123456');
-    });
-
-    test('tolerates a null devOtp (production)', () {
-      final c = AuthChallenge.fromJson({
-        'challengeToken': 'ct',
-        'expiresInSeconds': 300,
-        'resendAvailableInSeconds': 0,
-      });
-      expect(c.devOtp, isNull);
-      expect(c.resendAvailableInSeconds, 0);
     });
   });
 }

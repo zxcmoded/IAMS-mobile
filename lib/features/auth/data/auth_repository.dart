@@ -1,6 +1,5 @@
 import '../../../core/storage/device_id_provider.dart';
 import 'auth_api.dart';
-import 'models/auth_challenge.dart';
 import 'models/auth_session.dart';
 
 /// Orchestrates the auth API with the per-install device id. Token persistence
@@ -11,32 +10,14 @@ class AuthRepository {
   final AuthApi _api;
   final DeviceIdProvider _deviceIdProvider;
 
-  Future<AuthChallenge> login({
-    required String username,
-    required String password,
-  }) async {
+  /// Activates the account with the given key on this device, returning a
+  /// fresh session. `deviceId` is required by the contract (unlike
+  /// [refresh]'s optional one) — it's the single enforcement point for
+  /// device binding.
+  Future<AuthSession> activate(String activationKey) async {
     final deviceId = await _deviceIdProvider.getDeviceId();
-    return _api.login(
-      username: username,
-      password: password,
-      deviceId: deviceId,
-    );
+    return _api.activate(activationKey: activationKey, deviceId: deviceId);
   }
-
-  Future<AuthSession> verifyTwoFactor({
-    required String challengeToken,
-    required String code,
-  }) async {
-    final deviceId = await _deviceIdProvider.getDeviceId();
-    return _api.verifyTwoFactor(
-      challengeToken: challengeToken,
-      code: code,
-      deviceId: deviceId,
-    );
-  }
-
-  Future<AuthChallenge> resendTwoFactor(String challengeToken) =>
-      _api.resendTwoFactor(challengeToken: challengeToken);
 
   Future<AuthSession> refresh(String refreshToken) async {
     final deviceId = await _deviceIdProvider.getDeviceId();

@@ -8,16 +8,16 @@ void main() {
       final ex = ProblemDetailsParser.parse(
         data: {
           'type': 'https://tools.ietf.org/html/rfc9110',
-          'title': 'Invalid username or password.',
+          'title': 'That activation key isn\'t valid.',
           'status': 401,
-          'code': 'invalid_credentials',
+          'code': 'activation_key_invalid',
         },
         statusCode: 401,
       );
 
-      expect(ex.code, ApiErrorCode.invalidCredentials);
+      expect(ex.code, ApiErrorCode.activationKeyInvalid);
       expect(ex.statusCode, 401);
-      expect(ex.message, 'Invalid username or password.');
+      expect(ex.message, 'That activation key isn\'t valid.');
       expect(ex.errors, isEmpty);
     });
 
