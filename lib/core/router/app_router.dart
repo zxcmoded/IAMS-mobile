@@ -1,0 +1,103 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../features/auth/data/models/auth_challenge.dart';
+import '../../features/auth/presentation/controller/auth_controller.dart';
+import '../../features/auth/presentation/controller/auth_state.dart';
+import '../../features/auth/presentation/login/login_screen.dart';
+import '../../features/auth/presentation/session_expired/session_expired_screen.dart';
+import '../../features/auth/presentation/two_factor/two_factor_screen.dart';
+import '../../features/tenant/presentation/access/access_denied_screen.dart';
+import '../../features/tenant/presentation/access/cross_tenant_access_screen.dart';
+import '../../features/tenant/presentation/scope/company_selector_screen.dart';
+import '../../features/tenant/presentation/scope/connection_scope_screen.dart';
+import 'app_routes.dart';
+import 'go_router_refresh_stream.dart';
+
+/// Builds the app router. Redirects are driven by [AuthController] state so the
+/// user is always on a screen consistent with the session lifecycle:
+/// unauthenticated → Login, sessionExpired → Session Expired, authenticated →
+/// the Company Selector.
+GoRouter createRouter(AuthController auth) {
+  return GoRouter(
+    initialLocation: AppRoutes.splash,
+    refreshListenable: GoRouterRefreshStream(auth.stream),
+    redirect: (context, state) {
+      final status = auth.state.status;
+      final loc = state.matchedLocation;
+
+      if (status == AuthStatus.unknown) {
+        return loc == AppRoutes.splash ? null : AppRoutes.splash;
+      }
+
+      final onAuthFlow =
+          loc == AppRoutes.login || loc == AppRoutes.twoFactor;
+
+      if (status == AuthStatus.sessionExpired) {
+        return loc == AppRoutes.sessionExpired ? null : AppRoutes.sessionExpired;
+      }
+
+      if (status == AuthStatus.unauthenticated) {
+        return onAuthFlow ? null : AppRoutes.login;
+      }
+
+      // authenticated
+      if (onAuthFlow ||
+          loc == AppRoutes.splash ||
+          loc == AppRoutes.sessionExpired) {
+        return AppRoutes.companies;
+      }
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: AppRoutes.splash,
+        builder: (_, _) => const _SplashScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.login,
+        builder: (_, _) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.twoFactor,
+        builder: (_, state) =>
+            TwoFactorScreen(challenge: state.extra as AuthChallenge),
+      ),
+      GoRoute(
+        path: AppRoutes.sessionExpired,
+        builder: (_, _) => const SessionExpiredScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.companies,
+        builder: (_, _) => const CompanySelectorScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.connectionScope,
+        builder: (_, state) =>
+            ConnectionScopeScreen(args: state.extra as ConnectionScopeArgs),
+      ),
+      GoRoute(
+        path: AppRoutes.crossTenantAccess,
+        builder: (_, state) => CrossTenantAccessScreen(
+          args: state.extra as CrossTenantAccessArgs,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.accessDenied,
+        builder: (_, state) =>
+            AccessDeniedScreen(args: state.extra as AccessDeniedArgs),
+      ),
+    ],
+  );
+}
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
