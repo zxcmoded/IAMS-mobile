@@ -89,6 +89,29 @@ void main() {
     expect(field.enabled, isFalse);
   });
 
+  testWidgets(
+      'non-ApiException failure shows a generic error and stops the spinner',
+      (tester) async {
+    when(() => repo.activate(any()))
+        .thenThrow(StateError('secure storage unavailable'));
+
+    await tester.pumpWidget(const MaterialApp(home: ActivationScreen()));
+    await tester.enterText(
+        find.byKey(const Key('activation_key_field')), 'valid-key');
+    await tester.tap(find.widgetWithText(FilledButton, 'Activate'));
+    await tester.pump();
+    await tester.pump();
+
+    // The spinner is gone and a generic, retryable error banner is shown.
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byKey(const Key('activation_error_message')), findsOneWidget);
+    expect(find.text('Something went wrong. Please try again.'),
+        findsOneWidget);
+    // Retryable (not terminal): the Activate button remains, no Try again.
+    expect(find.widgetWithText(FilledButton, 'Activate'), findsOneWidget);
+    expect(find.text('Try again'), findsNothing);
+  });
+
   testWidgets('successful activation hands the session to AuthController',
       (tester) async {
     when(() => repo.activate('valid-key'))

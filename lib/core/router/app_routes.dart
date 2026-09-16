@@ -7,6 +7,8 @@ class AppRoutes {
   static const activation = '/activation';
   static const sessionExpired = '/session-expired';
 
+  static const sync = '/sync';
+
   static const companies = '/companies';
   static const connectionScope = '/companies/connection';
   static const crossTenantAccess = '/access';

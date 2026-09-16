@@ -49,6 +49,18 @@ class ScopeCubit extends Cubit<ScopeState> {
         errorCode: e.code,
         errorMessage: e.message,
       ));
+    } catch (_) {
+      // Catch-all for non-[ApiException] failures — e.g. a PlatformException
+      // from secure storage or a TypeError/FormatException parsing an
+      // unexpected response. Without this the Future error would go unhandled
+      // and the cubit would stay in [ScopeStatus.loading] forever (spinner
+      // spins, no error shown). Surface a generic message rather than leaking
+      // raw exception text to the UI.
+      emit(const ScopeState(
+        status: ScopeStatus.error,
+        errorCode: ApiErrorCode.unknown,
+        errorMessage: 'Something went wrong. Please try again.',
+      ));
     }
   }
 

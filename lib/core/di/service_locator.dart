@@ -5,6 +5,11 @@ import '../../features/auth/data/auth_api.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/activation/activation_cubit.dart';
 import '../../features/auth/presentation/controller/auth_controller.dart';
+import '../../features/masterdata/data/hierarchy_api.dart';
+import '../../features/masterdata/data/hierarchy_local_data_source.dart';
+import '../../features/masterdata/data/hierarchy_repository.dart';
+import '../../features/masterdata/data/hierarchy_sync_service.dart';
+import '../../features/masterdata/presentation/sync/hierarchy_sync_cubit.dart';
 import '../../features/tenant/data/tenant_api.dart';
 import '../../features/tenant/data/tenant_repository.dart';
 import '../../features/tenant/presentation/access/access_cubit.dart';
@@ -12,6 +17,7 @@ import '../../features/tenant/presentation/scope/scope_cubit.dart';
 import '../network/auth_interceptor.dart';
 import '../network/dio_factory.dart';
 import '../network/session_refresher.dart';
+import '../storage/app_database.dart';
 import '../storage/device_id_provider.dart';
 import '../storage/token_store.dart';
 
@@ -56,9 +62,22 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton<TenantRepository>(
       () => TenantRepository(sl<TenantApi>()));
 
+  // Master-data offline store + sync.
+  sl.registerLazySingleton<AppDatabase>(() => AppDatabase());
+  sl.registerLazySingleton<HierarchyLocalDataSource>(
+      () => HierarchyLocalDataSource(sl<AppDatabase>()));
+  sl.registerLazySingleton<HierarchyApi>(
+      () => HierarchyApi(sl<Dio>(instanceName: 'authenticated')));
+  sl.registerLazySingleton<HierarchyRepository>(
+      () => HierarchyRepository(sl<HierarchyLocalDataSource>()));
+  sl.registerLazySingleton<HierarchySyncService>(() =>
+      HierarchySyncService(sl<HierarchyLocalDataSource>(), sl<HierarchyApi>()));
+
   // Presentation cubits (new instance per screen).
   sl.registerFactory<ActivationCubit>(
       () => ActivationCubit(sl<AuthRepository>()));
   sl.registerFactory<ScopeCubit>(() => ScopeCubit(sl<TenantRepository>()));
   sl.registerFactory<AccessCubit>(() => AccessCubit(sl<TenantRepository>()));
+  sl.registerFactory<HierarchySyncCubit>(
+      () => HierarchySyncCubit(sl<HierarchySyncService>()));
 }

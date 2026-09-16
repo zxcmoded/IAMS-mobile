@@ -106,6 +106,25 @@ void main() {
             .having((s) => s.errorCode, 'code', ApiErrorCode.network),
       ],
     );
+
+    blocTest<ScopeCubit, ScopeState>(
+      'non-ApiException failure → error with a generic message, not stuck '
+      'in loading',
+      build: () {
+        when(repo.loadScope).thenThrow(StateError('secure storage unavailable'));
+        return ScopeCubit(repo);
+      },
+      act: (c) => c.load(),
+      skip: 1,
+      expect: () => [
+        isA<ScopeState>()
+            .having((s) => s.status, 'status', ScopeStatus.error)
+            .having((s) => s.errorCode, 'code', ApiErrorCode.unknown)
+            .having((s) => s.errorMessage, 'message', isNotNull)
+            .having((s) => s.errorMessage, 'message',
+                contains('Something went wrong')),
+      ],
+    );
   });
 
   group('AccessCubit', () {
@@ -153,6 +172,29 @@ void main() {
       expect: () => [
         isA<AccessState>()
             .having((s) => s.status, 'status', AccessStatus.error),
+      ],
+    );
+
+    blocTest<AccessCubit, AccessState>(
+      'non-ApiException failure → error with a generic message, not stuck '
+      'in evaluating',
+      build: () {
+        when(() => repo.evaluateAccess(any()))
+            .thenThrow(StateError('secure storage unavailable'));
+        return AccessCubit(repo);
+      },
+      act: (c) => c.evaluate(AccessRequest(
+        resource: const ResourceRef(companyId: 'co2'),
+        requiredPermission: PermissionLevel.write,
+      )),
+      skip: 1,
+      expect: () => [
+        isA<AccessState>()
+            .having((s) => s.status, 'status', AccessStatus.error)
+            .having((s) => s.errorCode, 'code', ApiErrorCode.unknown)
+            .having((s) => s.errorMessage, 'message', isNotNull)
+            .having((s) => s.errorMessage, 'message',
+                contains('Something went wrong')),
       ],
     );
   });

@@ -145,6 +145,26 @@ void main() {
                 'Network unavailable. Check your connection and retry.'),
       ],
     );
+    blocTest<ActivationCubit, ActivationState>(
+      'non-ApiException failure → error with a generic message, not stuck '
+      'in activating',
+      build: () {
+        when(() => repo.activate(any()))
+            .thenThrow(StateError('secure storage unavailable'));
+        return ActivationCubit(repo);
+      },
+      act: (c) => c.submit(activationKey: 'valid-key'),
+      expect: () => [
+        isA<ActivationState>()
+            .having((s) => s.status, 'status', ActivationStatus.activating),
+        isA<ActivationState>()
+            .having((s) => s.status, 'status', ActivationStatus.error)
+            .having((s) => s.errorMessage, 'message', isNotNull)
+            .having((s) => s.errorMessage, 'message',
+                contains('Something went wrong'))
+            .having((s) => s.errorCode, 'code', ApiErrorCode.unknown),
+      ],
+    );
   });
 
   group('ActivationCubit.reset', () {

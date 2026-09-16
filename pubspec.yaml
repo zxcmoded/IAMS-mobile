@@ -40,6 +40,8 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   go_router: ^14.6.2
   get_it: ^8.0.3
+  sqflite: ^2.4.0
+  path: ^1.9.0
 
 # NOTE (toolchain workaround): path_provider_foundation >= 2.5.0 migrated to the
 # `objective_c` native-assets build hook, which shells out to `xcrun` under the
@@ -54,6 +56,8 @@ dependency_overrides:
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to

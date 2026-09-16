@@ -100,6 +100,19 @@ class ActivationCubit extends Cubit<ActivationState> {
         errorMessage: _messageFor(e),
         fieldErrors: e.errors,
       ));
+    } catch (_) {
+      // Catch-all for non-[ApiException] failures — e.g. a PlatformException
+      // from secure storage (keystore/keychain) while reading the device id,
+      // or a TypeError/FormatException parsing an unexpected activation
+      // response. Without this the Future error would go unhandled and the
+      // cubit would stay in [ActivationStatus.activating] forever (spinner
+      // spins, no error shown). Surface a generic message rather than leaking
+      // raw exception text to the UI; treat as retryable (non-terminal).
+      emit(const ActivationState(
+        status: ActivationStatus.error,
+        errorCode: ApiErrorCode.unknown,
+        errorMessage: 'Something went wrong. Please try again.',
+      ));
     }
   }
 
