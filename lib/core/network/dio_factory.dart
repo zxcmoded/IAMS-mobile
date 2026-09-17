@@ -6,11 +6,12 @@ import 'error_interceptor.dart';
 /// Builds the two Dio instances the app uses:
 ///
 /// * [createRawClient] — no auth interceptor. Used by the auth endpoints
-///   (activate/refresh/logout) so a 401/403 there is never intercepted and
-///   retried.
-/// * [createAuthenticatedClient] — carries the Bearer token and refresh-on-401
-///   behaviour (the [AuthInterceptor] is added by the DI wiring, which owns the
-///   refresher, so this factory stays free of a construction cycle).
+///   (activate/logout) so a 401/403 there is never treated as an invalidated
+///   session.
+/// * [createAuthenticatedClient] — carries the Bearer token; a 401 invalidates
+///   the stored session (the [AuthInterceptor] is added by the DI wiring, which
+///   owns the session provider, so this factory stays free of a construction
+///   cycle).
 class DioFactory {
   const DioFactory._();
 

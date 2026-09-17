@@ -12,14 +12,19 @@ class MockAuthRepository extends Mock implements AuthRepository {}
 void main() {
   late MockAuthRepository repo;
   late FakeTokenStore store;
+  late FakeRememberedActivationKeyStore rememberedStore;
 
   setUp(() {
     repo = MockAuthRepository();
     store = FakeTokenStore();
+    rememberedStore = FakeRememberedActivationKeyStore();
   });
 
-  AuthController build() =>
-      AuthController(repository: repo, tokenStore: store);
+  AuthController build() => AuthController(
+        repository: repo,
+        tokenStore: store,
+        rememberedKeyStore: rememberedStore,
+      );
 
   group('bootstrap', () {
     test('no persisted session → unauthenticated', () async {
@@ -28,22 +33,19 @@ void main() {
       expect(c.state.status, AuthStatus.unauthenticated);
     });
 
-    test('valid persisted session → authenticated', () async {
+    test('persisted session → authenticated (reused as-is, no refresh)',
+        () async {
       store = FakeTokenStore(buildSession());
-      final c = AuthController(repository: repo, tokenStore: store);
+      final c = AuthController(
+        repository: repo,
+        tokenStore: store,
+        rememberedKeyStore: rememberedStore,
+      );
       await c.bootstrap();
       expect(c.state.status, AuthStatus.authenticated);
       expect(c.currentSession, isNotNull);
-    });
-
-    test('expired refresh token → unauthenticated and cleared', () async {
-      store = FakeTokenStore(buildSession(
-        refreshExpiry: DateTime.now().toUtc().subtract(const Duration(days: 1)),
-      ));
-      final c = AuthController(repository: repo, tokenStore: store);
-      await c.bootstrap();
-      expect(c.state.status, AuthStatus.unauthenticated);
-      expect(store.clears, greaterThan(0));
+      // The token is reused verbatim — nothing is cleared or re-fetched.
+      expect(store.clears, 0);
     });
   });
 
@@ -58,58 +60,67 @@ void main() {
     });
   });
 
-  group('refresh', () {
-    test('success rotates and persists the new session', () async {
+  group('invalidateSession (401 on an authenticated request)', () {
+    test('clears the store and moves to sessionExpired', () async {
       final c = build();
-      await c.onAuthenticated(buildSession(refreshToken: 'r1'));
-      final rotated = buildSession(accessToken: 'a2', refreshToken: 'r2');
-      when(() => repo.refresh('r1')).thenAnswer((_) async => rotated);
+      await c.onAuthenticated(buildSession());
 
-      final result = await c.refresh();
+      c.invalidateSession();
 
-      expect(result.accessToken, 'a2');
-      expect(c.currentSession!.refreshToken, 'r2');
-      expect(c.state.status, AuthStatus.authenticated);
-    });
-
-    test('session_expired → sessionExpired state, cleared store, rethrows',
-        () async {
-      final c = build();
-      await c.onAuthenticated(buildSession(refreshToken: 'r1'));
-      when(() => repo.refresh('r1')).thenThrow(const ApiException(
-        code: ApiErrorCode.sessionExpired,
-        message: 'expired',
-      ));
-
-      await expectLater(c.refresh(), throwsA(isA<ApiException>()));
       expect(c.state.status, AuthStatus.sessionExpired);
       expect(store.clears, greaterThan(0));
+      // The now-unusable session reference is dropped from state.
+      expect(c.currentSession, isNull);
     });
 
-    test('coalesces concurrent refreshes into a single call', () async {
+    test('is a no-op when already unauthenticated', () async {
       final c = build();
-      await c.onAuthenticated(buildSession(refreshToken: 'r1'));
-      when(() => repo.refresh('r1')).thenAnswer((_) async {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-        return buildSession(accessToken: 'a2', refreshToken: 'r2');
-      });
+      await c.bootstrap(); // unauthenticated
+      c.invalidateSession();
+      expect(c.state.status, AuthStatus.unauthenticated);
+      expect(store.clears, 0);
+    });
 
-      final results = await Future.wait([c.refresh(), c.refresh(), c.refresh()]);
-
-      expect(results.every((s) => s.accessToken == 'a2'), isTrue);
-      verify(() => repo.refresh('r1')).called(1);
+    test('is a no-op when already sessionExpired (idempotent)', () async {
+      final c = build();
+      await c.onAuthenticated(buildSession());
+      c.invalidateSession();
+      final clearsAfterFirst = store.clears;
+      c.invalidateSession();
+      expect(c.state.status, AuthStatus.sessionExpired);
+      expect(store.clears, clearsAfterFirst);
     });
   });
 
   group('logout', () {
-    test('clears the store and moves to unauthenticated', () async {
+    test('calls server logout, clears store, moves to unauthenticated',
+        () async {
       final c = build();
       final session = buildSession();
       await c.onAuthenticated(session);
       when(() => repo.logout(
             accessTokenHeader: any(named: 'accessTokenHeader'),
-            refreshToken: any(named: 'refreshToken'),
           )).thenAnswer((_) async {});
+
+      await c.logout();
+
+      verify(() => repo.logout(
+            accessTokenHeader: session.authorizationHeader,
+          )).called(1);
+      expect(c.state.status, AuthStatus.unauthenticated);
+      expect(c.currentSession, isNull);
+      expect(store.clears, greaterThan(0));
+    });
+
+    test('always clears local state even if server logout throws', () async {
+      final c = build();
+      await c.onAuthenticated(buildSession());
+      when(() => repo.logout(
+            accessTokenHeader: any(named: 'accessTokenHeader'),
+          )).thenThrow(const ApiException(
+        code: ApiErrorCode.network,
+        message: 'offline',
+      ));
 
       await c.logout();
 
@@ -118,31 +129,48 @@ void main() {
       expect(store.clears, greaterThan(0));
     });
 
-    test('local sign-out still completes if server logout throws', () async {
+    test('preserves the remembered activation key (one-tap resume survives)',
+        () async {
+      rememberedStore = FakeRememberedActivationKeyStore('remembered-key');
       final c = build();
       await c.onAuthenticated(buildSession());
       when(() => repo.logout(
             accessTokenHeader: any(named: 'accessTokenHeader'),
-            refreshToken: any(named: 'refreshToken'),
-          )).thenThrow(const ApiException(
-        code: ApiErrorCode.network,
-        message: 'offline',
-      ));
+          )).thenAnswer((_) async {});
 
       await c.logout();
+
+      // Session gone, but the remembered key is untouched.
+      expect(store.clears, greaterThan(0));
+      expect(rememberedStore.clears, 0);
+      expect(rememberedStore.value, 'remembered-key');
+    });
+  });
+
+  group('logoutAndForget', () {
+    test('signs out AND clears the remembered activation key', () async {
+      rememberedStore = FakeRememberedActivationKeyStore('remembered-key');
+      final c = build();
+      await c.onAuthenticated(buildSession());
+      when(() => repo.logout(
+            accessTokenHeader: any(named: 'accessTokenHeader'),
+          )).thenAnswer((_) async {});
+
+      await c.logoutAndForget();
+
       expect(c.state.status, AuthStatus.unauthenticated);
+      expect(c.currentSession, isNull);
+      expect(store.clears, greaterThan(0));
+      expect(rememberedStore.clears, greaterThan(0));
+      expect(rememberedStore.value, isNull);
     });
   });
 
   group('acknowledgeSessionExpired', () {
     test('returns to unauthenticated', () async {
       final c = build();
-      await c.onAuthenticated(buildSession(refreshToken: 'r1'));
-      when(() => repo.refresh('r1')).thenThrow(const ApiException(
-        code: ApiErrorCode.sessionExpired,
-        message: 'expired',
-      ));
-      await expectLater(c.refresh(), throwsA(isA<ApiException>()));
+      await c.onAuthenticated(buildSession());
+      c.invalidateSession();
       expect(c.state.status, AuthStatus.sessionExpired);
 
       c.acknowledgeSessionExpired();

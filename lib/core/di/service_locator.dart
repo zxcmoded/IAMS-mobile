@@ -27,9 +27,10 @@ import '../../features/tenant/presentation/access/access_cubit.dart';
 import '../../features/tenant/presentation/scope/scope_cubit.dart';
 import '../network/auth_interceptor.dart';
 import '../network/dio_factory.dart';
-import '../network/session_refresher.dart';
+import '../network/session_provider.dart';
 import '../storage/app_database.dart';
 import '../storage/device_id_provider.dart';
+import '../storage/remembered_activation_key_store.dart';
 import '../storage/token_store.dart';
 
 final GetIt sl = GetIt.instance;
@@ -37,14 +38,16 @@ final GetIt sl = GetIt.instance;
 /// Wires the object graph. Call once at startup before running the app.
 ///
 /// Construction order matters: the authenticated Dio's [AuthInterceptor] needs
-/// the [AuthController] (as [SessionRefresher]) and uses the same Dio as its
-/// retry client — so the controller is registered first, then the interceptor
-/// is inserted at the front of the authenticated client's chain.
+/// the [AuthController] (as [SessionProvider]) — so the controller is
+/// registered first, then the interceptor is inserted at the front of the
+/// authenticated client's chain.
 Future<void> configureDependencies() async {
   // Storage
   sl.registerLazySingleton<TokenStore>(() => SecureTokenStore());
   sl.registerLazySingleton<DeviceIdProvider>(
       () => PersistentDeviceIdProvider());
+  sl.registerLazySingleton<RememberedActivationKeyStore>(
+      () => SecureRememberedActivationKeyStore());
 
   // Auth data (raw Dio — never intercepted/retried).
   final rawDio = DioFactory.createRawClient();
@@ -52,18 +55,19 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton<AuthRepository>(
       () => AuthRepository(sl<AuthApi>(), sl<DeviceIdProvider>()));
 
-  // App-wide session controller (also the SessionRefresher).
+  // App-wide session controller (also the SessionProvider).
   sl.registerLazySingleton<AuthController>(() => AuthController(
         repository: sl<AuthRepository>(),
         tokenStore: sl<TokenStore>(),
+        rememberedKeyStore: sl<RememberedActivationKeyStore>(),
       ));
-  sl.registerLazySingleton<SessionRefresher>(() => sl<AuthController>());
+  sl.registerLazySingleton<SessionProvider>(() => sl<AuthController>());
 
-  // Authenticated Dio + interceptor (Bearer + refresh-on-401).
+  // Authenticated Dio + interceptor (Bearer; 401 invalidates the session).
   final authDio = DioFactory.createAuthenticatedClient();
   authDio.interceptors.insert(
     0,
-    AuthInterceptor(refresher: sl<SessionRefresher>(), retryClient: authDio),
+    AuthInterceptor(sl<SessionProvider>()),
   );
   sl.registerLazySingleton<Dio>(() => authDio, instanceName: 'authenticated');
 
@@ -102,8 +106,10 @@ Future<void> configureDependencies() async {
       ));
 
   // Presentation cubits (new instance per screen).
-  sl.registerFactory<ActivationCubit>(
-      () => ActivationCubit(sl<AuthRepository>()));
+  sl.registerFactory<ActivationCubit>(() => ActivationCubit(
+        sl<AuthRepository>(),
+        sl<RememberedActivationKeyStore>(),
+      ));
   sl.registerFactory<ScopeCubit>(() => ScopeCubit(sl<TenantRepository>()));
   sl.registerFactory<AccessCubit>(() => AccessCubit(sl<TenantRepository>()));
   sl.registerFactory<HierarchySyncCubit>(

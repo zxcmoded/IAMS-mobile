@@ -1,30 +1,27 @@
 import 'package:dio/dio.dart';
 
-import 'api_exception.dart';
-import 'session_refresher.dart';
+import 'session_provider.dart';
 
-/// Attaches the Bearer token to outgoing requests and, on a 401, attempts a
-/// single token refresh then retries the original request. If refresh fails
-/// (`session_expired`), the error is forwarded and the [SessionRefresher] is
-/// responsible for driving the app to the Session Expired screen.
+/// Attaches the Bearer token to outgoing requests and, on a 401, treats the
+/// stored token as no longer valid.
+///
+/// There is no token refresh: an activation issues a permanent per-device
+/// token, so a 401 cannot be recovered by a refresh-and-retry. It means the
+/// server has rejected the stored token (e.g. an admin reset the activation
+/// key), and the only recovery is re-activation. The interceptor signals
+/// [SessionProvider.invalidateSession] — which clears local auth and drives the
+/// app to the Session Expired screen — then forwards the original error.
 ///
 /// Only mounted on the *authenticated* Dio instance. The auth endpoints
-/// (activate/refresh/logout) use a separate raw Dio and must never be
-/// retried by this interceptor.
-class AuthInterceptor extends QueuedInterceptor {
-  AuthInterceptor({required this._refresher, required this._retryClient});
+/// (activate/logout) use a separate raw Dio and must never be intercepted here.
+class AuthInterceptor extends Interceptor {
+  AuthInterceptor(this._sessionProvider);
 
-  final SessionRefresher _refresher;
-
-  /// A Dio used to replay the original request after a refresh. This is the
-  /// same authenticated client; passed in to avoid a construction cycle.
-  final Dio _retryClient;
-
-  static const _retriedFlag = 'x-auth-retried';
+  final SessionProvider _sessionProvider;
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final session = _refresher.currentSession;
+    final session = _sessionProvider.currentSession;
     if (session != null) {
       options.headers['Authorization'] = session.authorizationHeader;
     }
@@ -32,29 +29,10 @@ class AuthInterceptor extends QueuedInterceptor {
   }
 
   @override
-  Future<void> onError(
-      DioException err, ErrorInterceptorHandler handler) async {
-    final response = err.response;
-    final alreadyRetried = err.requestOptions.extra[_retriedFlag] == true;
-
-    if (response?.statusCode != 401 || alreadyRetried) {
-      handler.next(err);
-      return;
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    if (err.response?.statusCode == 401) {
+      _sessionProvider.invalidateSession();
     }
-
-    try {
-      final session = await _refresher.refresh();
-      final options = err.requestOptions
-        ..extra[_retriedFlag] = true
-        ..headers['Authorization'] = session.authorizationHeader;
-      final retried = await _retryClient.fetch<dynamic>(options);
-      handler.resolve(retried);
-    } on ApiException catch (e) {
-      // Refresh failed (session_expired handled by the refresher's state
-      // transition). Surface the original 401 as a typed error.
-      handler.reject(err.copyWith(error: e));
-    } catch (_) {
-      handler.next(err);
-    }
+    handler.next(err);
   }
 }

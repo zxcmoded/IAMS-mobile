@@ -12,8 +12,9 @@ enum AuthStatus {
   /// Signed in with a live session.
   authenticated,
 
-  /// A refresh failed with `session_expired` — show the Session Expired screen
-  /// (distinct from a clean logout so the UI can prompt re-auth in context).
+  /// The stored token was rejected by the API (a 401 on an authenticated
+  /// request) — show the Session Expired screen (distinct from a clean logout
+  /// so the UI can prompt re-activation in context).
   sessionExpired,
 }
 

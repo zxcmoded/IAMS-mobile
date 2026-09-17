@@ -4,8 +4,8 @@ import 'models/access.dart';
 import 'models/scope.dart';
 
 /// Typed client for the F1/F15 scope + access endpoints. Uses the
-/// *authenticated* Dio, so the Bearer token is attached and a 401 triggers the
-/// refresh-on-401 flow automatically.
+/// *authenticated* Dio, so the Bearer token is attached and a 401 invalidates
+/// the stored session (driving the user back to re-activation).
 class TenantApi {
   TenantApi(this._dio);
 

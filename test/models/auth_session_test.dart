@@ -6,9 +6,7 @@ void main() {
     final json = {
       'accessToken': 'jwt-abc',
       'tokenType': 'Bearer',
-      'accessTokenExpiresAt': '2026-09-09T12:49:56+00:00',
-      'refreshToken': 'refresh-xyz',
-      'refreshTokenExpiresAt': '2026-10-09T12:34:56+00:00',
+      'accessTokenExpiresAt': '2126-01-01T00:00:00+00:00',
       'user': {'id': 'u1', 'username': 'alice', 'displayName': 'Alice'},
     };
 
@@ -22,14 +20,17 @@ void main() {
       expect(restored, session);
     });
 
-    test('isAccessTokenExpired accounts for a 30s skew', () {
-      final session = AuthSession.fromJson(json);
-      final justBeforeExpiry =
-          DateTime.parse('2026-09-09T12:49:40+00:00'); // 16s before
-      expect(session.isAccessTokenExpired(now: justBeforeExpiry), isTrue);
-
-      final wellBefore = DateTime.parse('2026-09-09T12:00:00+00:00');
-      expect(session.isAccessTokenExpired(now: wellBefore), isFalse);
+    test('ignores refresh fields if a legacy payload still carries them', () {
+      // The backend no longer returns refresh tokens; a stale/legacy body must
+      // still deserialize without error and simply drop the extra fields.
+      final legacy = {
+        ...json,
+        'refreshToken': 'refresh-xyz',
+        'refreshTokenExpiresAt': '2126-02-01T00:00:00+00:00',
+      };
+      final session = AuthSession.fromJson(legacy);
+      expect(session.accessToken, 'jwt-abc');
+      expect(session.toJson().containsKey('refreshToken'), isFalse);
     });
   });
 }

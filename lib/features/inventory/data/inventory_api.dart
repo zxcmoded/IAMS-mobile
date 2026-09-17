@@ -7,8 +7,8 @@ import 'models/stock_count_response.dart';
 import 'models/stock_movement_response.dart';
 
 /// Typed client for the F4 inventory endpoints. Uses the *authenticated* Dio,
-/// so the Bearer token is attached, a 401 triggers refresh-on-401, and the
-/// shared `ErrorInterceptor` normalizes any response ≥ 300 into a typed
+/// so the Bearer token is attached, a 401 invalidates the stored session, and
+/// the shared `ErrorInterceptor` normalizes any response ≥ 300 into a typed
 /// `ApiException` (including the Phase-2a `stock_version_conflict` /
 /// `insufficient_stock` / `stock_count_not_pending` codes).
 ///

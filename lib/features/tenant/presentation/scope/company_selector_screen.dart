@@ -25,6 +25,37 @@ class CompanySelectorScreen extends StatelessWidget {
   }
 }
 
+/// Confirms the destructive "forget this device" action before it runs.
+/// Declining (or dismissing) the dialog is a no-op — [AuthController.
+/// logoutAndForget] only fires once the user explicitly taps "Forget".
+Future<void> _confirmForgetDevice(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      key: const Key('forget_device_dialog'),
+      title: const Text('Forget this device?'),
+      content: const Text(
+        "You'll need to enter your activation key again next time.",
+      ),
+      actions: [
+        TextButton(
+          key: const Key('forget_device_cancel'),
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          key: const Key('forget_device_confirm'),
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Forget'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) {
+    await sl<AuthController>().logoutAndForget();
+  }
+}
+
 class _CompanySelectorView extends StatelessWidget {
   const _CompanySelectorView();
 
@@ -46,10 +77,24 @@ class _CompanySelectorView extends StatelessWidget {
             icon: const Icon(Icons.inventory_2_outlined),
             onPressed: () => context.push(AppRoutes.inventory),
           ),
+          // Tap: sign out but keep this device remembered (one-tap resume on
+          // the Activation screen). Long-press: also forget the remembered
+          // key, for a shared/kiosk device being handed off. Forgetting is
+          // destructive (it forces a full manual key re-entry later), so it
+          // always goes through a confirmation dialog before it runs.
+          //
+          // Uses IconButton's own onLongPress (rather than wrapping it in a
+          // separate GestureDetector) because IconButton also owns the
+          // tooltip's internal LongPressGestureRecognizer — a sibling
+          // GestureDetector competes with that recognizer in the same
+          // gesture arena and can lose to it, silently swallowing the long
+          // press.
           IconButton(
-            tooltip: 'Sign out',
+            key: const Key('company_sign_out'),
+            tooltip: 'Sign out (long-press to also forget this device)',
             icon: const Icon(Icons.logout),
             onPressed: () => sl<AuthController>().logout(),
+            onLongPress: () => _confirmForgetDevice(context),
           ),
         ],
       ),

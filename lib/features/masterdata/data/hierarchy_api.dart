@@ -8,8 +8,9 @@ import 'models/rack.dart';
 import 'models/warehouse.dart';
 
 /// Typed client for the five master-data listing endpoints. Uses the
-/// *authenticated* Dio, so the Bearer token is attached and a 401 triggers the
-/// refresh-on-401 flow automatically. No error handling here — the shared
+/// *authenticated* Dio, so the Bearer token is attached and a 401 invalidates
+/// the stored session (driving the user back to re-activation). No error
+/// handling here — the shared
 /// `ErrorInterceptor`/`ProblemDetailsParser` on that Dio instance normalizes
 /// any response ≥ 300 into a typed `ApiException`.
 ///

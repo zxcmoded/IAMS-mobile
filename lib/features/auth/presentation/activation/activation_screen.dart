@@ -6,15 +6,19 @@ import '../controller/auth_controller.dart';
 import 'activation_cubit.dart';
 
 /// Activation Key entry — the sole authentication entry point now that
-/// login/2FA are gone. One field, one button.
-/// States: idle · activating · error (retryable) · terminal (contact admin).
+/// login/2FA are gone.
+///
+/// On mount it asks the cubit to load any remembered key: if this device was
+/// activated before, the user sees a one-tap "Welcome back" resume state
+/// instead of the blank form; otherwise they type the key as usual.
+/// States: resume · idle · activating · error (retryable) · terminal.
 class ActivationScreen extends StatelessWidget {
   const ActivationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ActivationCubit>(
-      create: (_) => sl<ActivationCubit>(),
+      create: (_) => sl<ActivationCubit>()..loadRemembered(),
       child: const _ActivationView(),
     );
   }
@@ -67,64 +71,144 @@ class _ActivationViewState extends State<_ActivationView> {
                 padding: const EdgeInsets.all(24),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'IAMS',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Enter Activation Key',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 32),
-                      if (state.errorMessage != null)
-                        _MessageBanner(message: state.errorMessage!),
-                      TextField(
-                        key: const Key('activation_key_field'),
-                        controller: _keyController,
-                        enabled: !state.isBusy && !state.isTerminal,
-                        autofillHints: const [AutofillHints.oneTimeCode],
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _submit(),
-                        decoration: InputDecoration(
-                          labelText: 'Activation Key',
-                          border: const OutlineInputBorder(),
-                          errorText: _firstFieldError(state, 'ActivationKey'),
+                  child: state.isResume
+                      ? _ResumeBody(isBusy: state.isBusy)
+                      : _EntryBody(
+                          state: state,
+                          keyController: _keyController,
+                          onSubmit: _submit,
+                          onTryAgain: _tryAgain,
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      if (state.isTerminal)
-                        FilledButton(
-                          key: const Key('activation_try_again'),
-                          onPressed: _tryAgain,
-                          child: const Text('Try again'),
-                        )
-                      else
-                        FilledButton(
-                          onPressed: state.isBusy ? null : _submit,
-                          child: state.isBusy
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
-                                )
-                              : const Text('Activate'),
-                        ),
-                    ],
-                  ),
                 ),
               ),
             );
           },
         ),
       ),
+    );
+  }
+}
+
+/// "Welcome back" resume state: one tap to continue with the remembered key,
+/// or fall back to manual entry with a different key.
+class _ResumeBody extends StatelessWidget {
+  const _ResumeBody({required this.isBusy});
+
+  final bool isBusy;
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<ActivationCubit>();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'IAMS',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Welcome back',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'This device is already activated. Tap continue to sign back in.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 32),
+        FilledButton(
+          key: const Key('activation_resume_continue'),
+          onPressed: isBusy ? null : cubit.resume,
+          child: isBusy
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Continue'),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          key: const Key('activation_use_different_key'),
+          onPressed: isBusy ? null : cubit.useDifferentKey,
+          child: const Text('Use a different activation key'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Blank / error / terminal manual-entry form — one field, one button.
+class _EntryBody extends StatelessWidget {
+  const _EntryBody({
+    required this.state,
+    required this.keyController,
+    required this.onSubmit,
+    required this.onTryAgain,
+  });
+
+  final ActivationState state;
+  final TextEditingController keyController;
+  final VoidCallback onSubmit;
+  final VoidCallback onTryAgain;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'IAMS',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Enter Activation Key',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 32),
+        if (state.errorMessage != null)
+          _MessageBanner(message: state.errorMessage!),
+        TextField(
+          key: const Key('activation_key_field'),
+          controller: keyController,
+          enabled: !state.isBusy && !state.isTerminal,
+          autofillHints: const [AutofillHints.oneTimeCode],
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => onSubmit(),
+          decoration: InputDecoration(
+            labelText: 'Activation Key',
+            border: const OutlineInputBorder(),
+            errorText: _firstFieldError(state, 'ActivationKey'),
+          ),
+        ),
+        const SizedBox(height: 24),
+        if (state.isTerminal)
+          FilledButton(
+            key: const Key('activation_try_again'),
+            onPressed: onTryAgain,
+            child: const Text('Try again'),
+          )
+        else
+          FilledButton(
+            onPressed: state.isBusy ? null : onSubmit,
+            child: state.isBusy
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Activate'),
+          ),
+      ],
     );
   }
 

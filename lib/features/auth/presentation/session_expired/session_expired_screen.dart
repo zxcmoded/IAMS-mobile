@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/di/service_locator.dart';
 import '../controller/auth_controller.dart';
 
-/// F1 — Session Expired. Shown whenever a refresh returns `session_expired`.
-/// Prompts the user to re-authenticate; acknowledging returns to Login.
+/// F1 — Session Expired. Shown when the stored token is rejected by the API
+/// (a 401 on an authenticated request). Prompts the user to re-authenticate;
+/// acknowledging returns to the activation flow.
 class SessionExpiredScreen extends StatelessWidget {
   const SessionExpiredScreen({super.key});
 

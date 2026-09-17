@@ -19,14 +19,20 @@ class MockAuthRepository extends Mock implements AuthRepository {}
 void main() {
   late MockAuthRepository repo;
   late AuthController authController;
+  late FakeRememberedActivationKeyStore remembered;
 
   setUp(() {
     repo = MockAuthRepository();
+    remembered = FakeRememberedActivationKeyStore();
     // ActivationScreen resolves its cubit from the service locator, and its
     // success listener hands the session to AuthController via sl<>().
-    sl.registerFactory<ActivationCubit>(() => ActivationCubit(repo));
-    authController =
-        AuthController(repository: repo, tokenStore: FakeTokenStore());
+    sl.registerFactory<ActivationCubit>(
+        () => ActivationCubit(repo, remembered));
+    authController = AuthController(
+      repository: repo,
+      tokenStore: FakeTokenStore(),
+      rememberedKeyStore: remembered,
+    );
     sl.registerLazySingleton<AuthController>(() => authController);
   });
 
@@ -125,5 +131,76 @@ void main() {
     await tester.pump();
 
     expect(authController.state.status, AuthStatus.authenticated);
+  });
+
+  group('resume ("Welcome back")', () {
+    testWidgets(
+        'a remembered key shows the resume state instead of the blank form',
+        (tester) async {
+      await remembered.write('remembered-key');
+
+      await tester.pumpWidget(const MaterialApp(home: ActivationScreen()));
+      await tester.pump(); // let loadRemembered() settle
+
+      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.byKey(const Key('activation_resume_continue')),
+          findsOneWidget);
+      // The blank entry form is not shown.
+      expect(find.byKey(const Key('activation_key_field')), findsNothing);
+    });
+
+    testWidgets('tapping Continue resumes with the remembered key',
+        (tester) async {
+      await remembered.write('remembered-key');
+      when(() => repo.activate('remembered-key'))
+          .thenAnswer((_) async => buildSession());
+
+      await tester.pumpWidget(const MaterialApp(home: ActivationScreen()));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('activation_resume_continue')));
+      await tester.pump();
+      await tester.pump();
+
+      verify(() => repo.activate('remembered-key')).called(1);
+      expect(authController.state.status, AuthStatus.authenticated);
+    });
+
+    testWidgets(
+        'a failed resume forgets the key and falls back to manual entry with '
+        'the mapped error', (tester) async {
+      await remembered.write('stale-key');
+      when(() => repo.activate('stale-key')).thenThrow(const ApiException(
+        code: ApiErrorCode.activationKeyInvalid,
+        statusCode: 401,
+        message: 'mock message from backend',
+      ));
+
+      await tester.pumpWidget(const MaterialApp(home: ActivationScreen()));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('activation_resume_continue')));
+      await tester.pump();
+      await tester.pump();
+
+      // Back on the manual entry form with the clear, mapped error.
+      expect(find.byKey(const Key('activation_key_field')), findsOneWidget);
+      expect(find.byKey(const Key('activation_error_message')), findsOneWidget);
+      expect(find.textContaining('isn\'t valid'), findsOneWidget);
+      // The stale key has been forgotten.
+      expect(remembered.value, isNull);
+    });
+
+    testWidgets('"Use a different key" forgets the key and shows the form',
+        (tester) async {
+      await remembered.write('remembered-key');
+
+      await tester.pumpWidget(const MaterialApp(home: ActivationScreen()));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('activation_use_different_key')));
+      await tester.pump();
+
+      expect(find.byKey(const Key('activation_key_field')), findsOneWidget);
+      expect(find.text('Welcome back'), findsNothing);
+      expect(remembered.value, isNull);
+    });
   });
 }
