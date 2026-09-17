@@ -25,6 +25,7 @@ class ProblemDetailsParser {
         statusCode: statusCode,
         errors: errors,
         traceId: map['traceId'] as String?,
+        extensions: _parseExtensions(map),
       );
     }
     return ApiException(
@@ -32,6 +33,22 @@ class ProblemDetailsParser {
       message: _fallbackMessageForStatus(statusCode),
       statusCode: statusCode,
     );
+  }
+
+  /// The RFC 7807 core members that are already surfaced as first-class
+  /// [ApiException] fields — everything else on the body is an extension member
+  /// (e.g. `conflicts`, `binId`, `availableQuantity`) and is kept verbatim.
+  static const _standardMembers = {
+    'type', 'title', 'status', 'detail', 'instance', 'code', 'errors',
+    'traceId',
+  };
+
+  static Map<String, dynamic> _parseExtensions(Map<String, dynamic> map) {
+    final ext = <String, dynamic>{};
+    map.forEach((key, value) {
+      if (!_standardMembers.contains(key)) ext[key] = value;
+    });
+    return ext;
   }
 
   static Map<String, List<String>> _parseErrors(dynamic raw) {

@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../../features/inventory/data/inventory_schema.dart';
 import '../../features/masterdata/data/hierarchy_schema.dart';
 import '../../features/masterdata/data/sync_metadata_schema.dart';
 
@@ -17,7 +18,7 @@ class AppDatabase {
       // ignore: prefer_initializing_formals
       : _databaseName = databaseName;
 
-  static const int _version = 1;
+  static const int _version = 2;
 
   final String _databaseName;
 
@@ -51,19 +52,33 @@ class AppDatabase {
 
   Future<void> _onCreate(Database db, int version) async {
     final batch = db.batch();
-    for (final statement in [...hierarchySchema, ...syncMetadataSchema]) {
+    for (final statement in [
+      ...hierarchySchema,
+      ...syncMetadataSchema,
+      ...inventorySchema, // v2 — F4 offline-first outbox + stock cache
+    ]) {
       batch.execute(statement);
     }
     await batch.commit(noResult: true);
   }
 
-  /// No migrations exist yet (v1 is the only version). The empty `switch`
-  /// stands ready for future incremental upgrades — each future version adds a
-  /// fall-through `case` here.
+  /// Incremental upgrades. Each `case` is the version being upgraded *from* and
+  /// falls through (`continue`) so a device several versions behind runs every
+  /// intervening migration in order.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    final batch = db.batch();
     switch (oldVersion) {
-      // case 1: await db.execute('...'); continue; // future v2 migration
+      case 1:
+        // v1 → v2: add the Phase-2a inventory outbox + stock-version cache.
+        for (final statement in inventorySchema) {
+          batch.execute(statement);
+        }
+        continue v2;
+      v2:
+      case 2:
+        break;
     }
+    await batch.commit(noResult: true);
   }
 
   Future<void> close() async {

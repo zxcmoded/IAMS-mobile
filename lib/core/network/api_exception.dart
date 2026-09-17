@@ -32,6 +32,22 @@ class ApiErrorCode {
   static const String accessDenied = 'access_denied';
   static const String notFound = 'not_found';
 
+  // ---- Phase 2a: scanning + inventory operations --------------------------
+
+  /// 409 from an inventory mutation whose stamped `base*StockVersion` no longer
+  /// matches the server's current version for a bin (someone else changed it
+  /// first). The ProblemDetails body carries `conflicts[]` with each affected
+  /// bin's current version + on-hand so the client can rebase. See
+  /// `IAMS-backend/docs/api/phase-2a-scanning-inventory.md`.
+  static const String stockVersionConflict = 'stock_version_conflict';
+
+  /// 422 from receive/transfer/adjust when the movement would drive a bin
+  /// below zero. Body carries `binId` + `availableQuantity`.
+  static const String insufficientStock = 'insufficient_stock';
+
+  /// 409 from approve/reject on a stock count that is not `PendingApproval`.
+  static const String stockCountNotPending = 'stock_count_not_pending';
+
   /// Synthetic code used when the failure is not an HTTP ProblemDetails
   /// response at all (socket error, timeout, DNS, TLS, etc.).
   static const String network = 'network_error';
@@ -55,6 +71,7 @@ class ApiException extends Equatable implements Exception {
     this.statusCode,
     this.errors = const {},
     this.traceId,
+    this.extensions = const {},
   });
 
   /// Stable machine-readable code (see [ApiErrorCode]).
@@ -73,13 +90,24 @@ class ApiException extends Equatable implements Exception {
   /// Not used for branching; safe to surface in an error footer.
   final String? traceId;
 
+  /// Non-standard ProblemDetails extension members carried on the error body
+  /// beyond the RFC 7807 core (`type`/`title`/`status`/`detail`/`instance`).
+  /// Phase 2a puts a `stock_version_conflict`'s `conflicts[]` and an
+  /// `insufficient_stock`'s `binId`/`availableQuantity` here so the offline
+  /// outbox can rebase without a second round-trip. Empty for errors that
+  /// carry no extensions.
+  final Map<String, dynamic> extensions;
+
   bool get isSessionExpired => code == ApiErrorCode.sessionExpired;
   bool get isNetwork => code == ApiErrorCode.network;
+  bool get isStockVersionConflict => code == ApiErrorCode.stockVersionConflict;
+  bool get isInsufficientStock => code == ApiErrorCode.insufficientStock;
 
   @override
   String toString() =>
       'ApiException($code, status=$statusCode, "$message", traceId=$traceId)';
 
   @override
-  List<Object?> get props => [code, message, statusCode, errors, traceId];
+  List<Object?> get props =>
+      [code, message, statusCode, errors, traceId, extensions];
 }

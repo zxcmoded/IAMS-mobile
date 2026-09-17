@@ -5,11 +5,22 @@ import '../../features/auth/data/auth_api.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/activation/activation_cubit.dart';
 import '../../features/auth/presentation/controller/auth_controller.dart';
+import '../../features/inventory/data/inventory_api.dart';
+import '../../features/inventory/data/outbox_local_data_source.dart';
+import '../../features/inventory/data/outbox_repository.dart';
+import '../../features/inventory/presentation/adjust/adjustment_cubit.dart';
+import '../../features/inventory/presentation/count/stock_count_cubit.dart';
+import '../../features/inventory/presentation/list/inventory_list_cubit.dart';
+import '../../features/inventory/presentation/receive/receive_cubit.dart';
+import '../../features/inventory/presentation/transfer/transfer_cubit.dart';
 import '../../features/masterdata/data/hierarchy_api.dart';
 import '../../features/masterdata/data/hierarchy_local_data_source.dart';
 import '../../features/masterdata/data/hierarchy_repository.dart';
 import '../../features/masterdata/data/hierarchy_sync_service.dart';
 import '../../features/masterdata/presentation/sync/hierarchy_sync_cubit.dart';
+import '../../features/scanning/data/scan_api.dart';
+import '../../features/scanning/data/scan_repository.dart';
+import '../../features/scanning/presentation/scanner/scanner_cubit.dart';
 import '../../features/tenant/data/tenant_api.dart';
 import '../../features/tenant/data/tenant_repository.dart';
 import '../../features/tenant/presentation/access/access_cubit.dart';
@@ -73,6 +84,23 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton<HierarchySyncService>(() =>
       HierarchySyncService(sl<HierarchyLocalDataSource>(), sl<HierarchyApi>()));
 
+  // Scanning (F3) — shares the authenticated Dio + persistent device id.
+  sl.registerLazySingleton<ScanApi>(
+      () => ScanApi(sl<Dio>(instanceName: 'authenticated')));
+  sl.registerLazySingleton<ScanRepository>(
+      () => ScanRepository(sl<ScanApi>(), sl<DeviceIdProvider>()));
+
+  // Inventory (F4) — online reads + offline-first outbox mutation queue.
+  sl.registerLazySingleton<InventoryApi>(
+      () => InventoryApi(sl<Dio>(instanceName: 'authenticated')));
+  sl.registerLazySingleton<OutboxLocalDataSource>(
+      () => OutboxLocalDataSource(sl<AppDatabase>()));
+  sl.registerLazySingleton<OutboxRepository>(() => OutboxRepository(
+        sl<OutboxLocalDataSource>(),
+        sl<InventoryApi>(),
+        sl<DeviceIdProvider>(),
+      ));
+
   // Presentation cubits (new instance per screen).
   sl.registerFactory<ActivationCubit>(
       () => ActivationCubit(sl<AuthRepository>()));
@@ -80,4 +108,14 @@ Future<void> configureDependencies() async {
   sl.registerFactory<AccessCubit>(() => AccessCubit(sl<TenantRepository>()));
   sl.registerFactory<HierarchySyncCubit>(
       () => HierarchySyncCubit(sl<HierarchySyncService>()));
+  sl.registerFactory<ScannerCubit>(() => ScannerCubit(sl<ScanRepository>()));
+  sl.registerFactory<InventoryListCubit>(
+      () => InventoryListCubit(sl<InventoryApi>()));
+  sl.registerFactory<ReceiveCubit>(() => ReceiveCubit(sl<OutboxRepository>()));
+  sl.registerFactory<TransferCubit>(
+      () => TransferCubit(sl<OutboxRepository>()));
+  sl.registerFactory<AdjustmentCubit>(
+      () => AdjustmentCubit(sl<OutboxRepository>()));
+  sl.registerFactory<StockCountCubit>(
+      () => StockCountCubit(sl<OutboxRepository>()));
 }

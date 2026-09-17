@@ -14,7 +14,6 @@
 // `HierarchyLocalDataSource` directly against the same GetIt-wired,
 // real-sqflite instance the app just populated -- the most faithful
 // "real database" check available given that gap.
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iams_mobile/core/di/service_locator.dart';

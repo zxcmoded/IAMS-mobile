@@ -13,4 +13,16 @@ class AppRoutes {
   static const connectionScope = '/companies/connection';
   static const crossTenantAccess = '/access';
   static const accessDenied = '/access/denied';
+
+  // F3 — Scanning
+  static const scanner = '/scan';
+  static const manualEntry = '/scan/manual';
+
+  // F4 — Inventory Operations
+  static const inventory = '/inventory';
+  static const inventoryItem = '/inventory/item'; // + ?id, args via `extra`
+  static const receive = '/inventory/receive';
+  static const transfer = '/inventory/transfer';
+  static const adjust = '/inventory/adjust';
+  static const stockCount = '/inventory/count';
 }

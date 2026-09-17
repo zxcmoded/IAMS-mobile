@@ -64,8 +64,7 @@ Future<void> pumpUntilFound(
 }
 
 IntegrationTestWidgetsFlutterBinding ensureBinding() =>
-    IntegrationTestWidgetsFlutterBinding.ensureInitialized()
-        as IntegrationTestWidgetsFlutterBinding;
+    IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
 /// Logs a marker request through the QA fault-injecting proxy (a 404 is
 /// expected/ignored -- it never reaches anything meaningful) purely so the

@@ -152,6 +152,72 @@ void main() {
   );
 
   blocTest<HierarchySyncCubit, HierarchySyncState>(
+    'network failure with existing local data → proceeds into the app with '
+    'that data, ends complete rather than blocking on an error screen',
+    build: () => HierarchySyncCubit(service),
+    setUp: () {
+      // A prior sync already landed at least one company locally...
+      local.seedRow('company', company('co1').toRow());
+      // ...but this launch has no connectivity.
+      when(() => api.getCompanies(
+              cursor: any(named: 'cursor'), pageSize: any(named: 'pageSize')))
+          .thenThrow(const ApiException(
+              code: ApiErrorCode.network, message: 'No connection'));
+    },
+    act: (c) => c.checkAndSync(),
+    expect: () => [
+      isA<HierarchySyncState>()
+          .having((s) => s.stage, 'stage', SyncStage.syncing),
+      isA<HierarchySyncState>()
+          .having((s) => s.stage, 'stage', SyncStage.complete),
+    ],
+  );
+
+  blocTest<HierarchySyncCubit, HierarchySyncState>(
+    'network failure with no local data at all → still completes into the app '
+    '(a plain connectivity failure never blocks the user, even on fresh '
+    'install with an empty local DB)',
+    build: () => HierarchySyncCubit(service),
+    setUp: () {
+      // Fresh install: nothing seeded locally, and no connectivity.
+      when(() => api.getCompanies(
+              cursor: any(named: 'cursor'), pageSize: any(named: 'pageSize')))
+          .thenThrow(const ApiException(
+              code: ApiErrorCode.network, message: 'No connection'));
+    },
+    act: (c) => c.checkAndSync(),
+    expect: () => [
+      isA<HierarchySyncState>()
+          .having((s) => s.stage, 'stage', SyncStage.syncing),
+      isA<HierarchySyncState>()
+          .having((s) => s.stage, 'stage', SyncStage.complete),
+    ],
+  );
+
+  blocTest<HierarchySyncCubit, HierarchySyncState>(
+    'non-network ApiException (e.g. a 500 server error) → still shows the '
+    'blocking error screen with the server message',
+    build: () => HierarchySyncCubit(service),
+    setUp: () {
+      when(() => api.getCompanies(
+              cursor: any(named: 'cursor'), pageSize: any(named: 'pageSize')))
+          .thenThrow(const ApiException(
+              code: ApiErrorCode.unknown,
+              statusCode: 500,
+              message: 'Internal server error'));
+    },
+    act: (c) => c.checkAndSync(),
+    expect: () => [
+      isA<HierarchySyncState>()
+          .having((s) => s.stage, 'stage', SyncStage.syncing),
+      isA<HierarchySyncState>()
+          .having((s) => s.stage, 'stage', SyncStage.error)
+          .having((s) => s.errorMessage, 'message', 'Internal server error')
+          .having((s) => s.retryable, 'retryable', isTrue),
+    ],
+  );
+
+  blocTest<HierarchySyncCubit, HierarchySyncState>(
     'non-ApiException failure → error with a generic message, not stuck '
     'in syncing',
     build: () => HierarchySyncCubit(service),

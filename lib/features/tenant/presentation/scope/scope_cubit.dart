@@ -36,6 +36,11 @@ class ScopeState extends Equatable {
 class ScopeCubit extends Cubit<ScopeState> {
   ScopeCubit(this._repository) : super(const ScopeState());
 
+  /// Shown when [loadScope] fails with a connectivity error. Scope has no
+  /// offline cache, so this is a dead end until the device reconnects.
+  static const String _offlineMessage =
+      "You're offline. Connect to the internet to view your companies.";
+
   final TenantRepository _repository;
 
   Future<void> load() async {
@@ -47,7 +52,13 @@ class ScopeCubit extends Cubit<ScopeState> {
       emit(ScopeState(
         status: ScopeStatus.error,
         errorCode: e.code,
-        errorMessage: e.message,
+        // A plain connectivity failure is surfaced with a distinct, explicit
+        // "you're offline" message rather than the generic server-supplied
+        // text. Scope is online-only (no local cache), so the user genuinely
+        // cannot pick/switch companies while offline — the copy makes that
+        // clear instead of reading as an ambiguous failure. Non-network
+        // ApiExceptions keep their own [message].
+        errorMessage: e.isNetwork ? _offlineMessage : e.message,
       ));
     } catch (_) {
       // Catch-all for non-[ApiException] failures — e.g. a PlatformException

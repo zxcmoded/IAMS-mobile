@@ -102,6 +102,16 @@ class HierarchySyncCubit extends Cubit<HierarchySyncState> {
       });
       emit(const HierarchySyncState(stage: SyncStage.complete));
     } on ApiException catch (e) {
+      if (e.isNetwork) {
+        // A plain connectivity failure never blocks the user — proceed into the
+        // app with whatever local data exists (which may be nothing at all on a
+        // fresh install with no prior sync). A failed attempt just means the
+        // connection isn't usable right now; the next successful launch/retry
+        // catches up incrementally. Only non-network errors (real bugs, bad
+        // server responses) still surface the blocking error screen below.
+        emit(const HierarchySyncState(stage: SyncStage.complete));
+        return;
+      }
       emit(HierarchySyncState(
         stage: SyncStage.error,
         errorCode: e.code,

@@ -5,9 +5,18 @@ import '../../features/auth/presentation/activation/activation_screen.dart';
 import '../../features/auth/presentation/controller/auth_controller.dart';
 import '../../features/auth/presentation/controller/auth_state.dart';
 import '../../features/auth/presentation/session_expired/session_expired_screen.dart';
+import '../../features/inventory/presentation/adjust/adjustment_screen.dart';
+import '../../features/inventory/presentation/count/stock_count_screen.dart';
+import '../../features/inventory/presentation/detail/inventory_item_screen.dart';
+import '../../features/inventory/presentation/list/inventory_list_screen.dart';
+import '../../features/inventory/presentation/receive/receive_screen.dart';
+import '../../features/inventory/presentation/shared/mutation_args.dart';
+import '../../features/inventory/presentation/transfer/transfer_screen.dart';
 import '../../features/tenant/presentation/access/access_denied_screen.dart';
 import '../../features/tenant/presentation/access/cross_tenant_access_screen.dart';
 import '../../features/masterdata/presentation/sync/hierarchy_sync_screen.dart';
+import '../../features/scanning/presentation/manual_entry/manual_entry_screen.dart';
+import '../../features/scanning/presentation/scanner/scanner_screen.dart';
 import '../../features/tenant/presentation/scope/company_selector_screen.dart';
 import '../../features/tenant/presentation/scope/connection_scope_screen.dart';
 import 'app_routes.dart';
@@ -85,6 +94,48 @@ GoRouter createRouter(AuthController auth) {
         path: AppRoutes.accessDenied,
         builder: (_, state) =>
             AccessDeniedScreen(args: state.extra as AccessDeniedArgs),
+      ),
+
+      // F3 — Scanning
+      GoRoute(
+        path: AppRoutes.scanner,
+        builder: (_, _) => const ScannerScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.manualEntry,
+        builder: (_, _) => const ManualEntryScreen(),
+      ),
+
+      // F4 — Inventory Operations
+      GoRoute(
+        path: AppRoutes.inventory,
+        builder: (_, _) => const InventoryListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.inventoryItem,
+        builder: (_, state) => InventoryItemScreen(
+          itemId: state.uri.queryParameters['id'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.receive,
+        builder: (_, state) =>
+            ReceiveScreen(args: state.extra as MutationArgs),
+      ),
+      GoRoute(
+        path: AppRoutes.transfer,
+        builder: (_, state) =>
+            TransferScreen(args: state.extra as MutationArgs),
+      ),
+      GoRoute(
+        path: AppRoutes.adjust,
+        builder: (_, state) =>
+            AdjustmentScreen(args: state.extra as MutationArgs),
+      ),
+      GoRoute(
+        path: AppRoutes.stockCount,
+        builder: (_, state) =>
+            StockCountScreen(args: state.extra as MutationArgs),
       ),
     ],
   );

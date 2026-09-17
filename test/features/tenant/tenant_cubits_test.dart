@@ -90,11 +90,13 @@ void main() {
     );
 
     blocTest<ScopeCubit, ScopeState>(
-      'failure → error state carrying the code',
+      'network failure → error carrying the code and a distinct offline message',
       build: () {
         when(repo.loadScope).thenThrow(const ApiException(
           code: ApiErrorCode.network,
-          message: 'offline',
+          // The raw server/transport text is deliberately ignored in favour of
+          // the explicit offline copy.
+          message: 'SocketException: failed host lookup',
         ));
         return ScopeCubit(repo);
       },
@@ -103,7 +105,30 @@ void main() {
       expect: () => [
         isA<ScopeState>()
             .having((s) => s.status, 'status', ScopeStatus.error)
-            .having((s) => s.errorCode, 'code', ApiErrorCode.network),
+            .having((s) => s.errorCode, 'code', ApiErrorCode.network)
+            .having((s) => s.errorMessage, 'message',
+                "You're offline. Connect to the internet to view your companies."),
+      ],
+    );
+
+    blocTest<ScopeCubit, ScopeState>(
+      'non-network ApiException → error keeps the server-supplied message',
+      build: () {
+        when(repo.loadScope).thenThrow(const ApiException(
+          code: ApiErrorCode.accessDenied,
+          message: 'You do not have access to any company.',
+          statusCode: 403,
+        ));
+        return ScopeCubit(repo);
+      },
+      act: (c) => c.load(),
+      skip: 1,
+      expect: () => [
+        isA<ScopeState>()
+            .having((s) => s.status, 'status', ScopeStatus.error)
+            .having((s) => s.errorCode, 'code', ApiErrorCode.accessDenied)
+            .having((s) => s.errorMessage, 'message',
+                'You do not have access to any company.'),
       ],
     );
 

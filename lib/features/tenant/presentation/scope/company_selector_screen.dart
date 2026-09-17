@@ -34,6 +34,18 @@ class _CompanySelectorView extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Companies'),
         actions: [
+          // Interim entry points into F3/F4 until the F2 Home tab bar lands in
+          // Phase 2b.
+          IconButton(
+            tooltip: 'Scan',
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: () => context.push(AppRoutes.scanner),
+          ),
+          IconButton(
+            tooltip: 'Inventory',
+            icon: const Icon(Icons.inventory_2_outlined),
+            onPressed: () => context.push(AppRoutes.inventory),
+          ),
           IconButton(
             tooltip: 'Sign out',
             icon: const Icon(Icons.logout),
