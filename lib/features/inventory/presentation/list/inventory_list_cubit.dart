@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
-import '../../data/inventory_api.dart';
+import '../../data/inventory_repository.dart';
 import '../../data/models/inventory_enums.dart';
 import '../../data/models/inventory_item.dart';
 
@@ -80,13 +80,16 @@ class InventoryListState extends Equatable {
       ];
 }
 
-/// Drives the inventory list. The list itself is an **online** view (the
-/// contract's offset-paginated search), so a load failure surfaces a retryable
-/// error rather than silently showing stale data.
+/// Drives the inventory list. The list is now an **offline-first, local-only**
+/// view: it reads exclusively from SQLite via [InventoryRepository] (zero API
+/// calls for list / search / filter / navigation — those happen only in the
+/// background sync). Search, filter, aggregate on-hand, sort, and pagination
+/// are all computed locally. A failure here is a local read error (rare), so it
+/// still surfaces a retryable error state rather than silently showing nothing.
 class InventoryListCubit extends Cubit<InventoryListState> {
-  InventoryListCubit(this._api) : super(const InventoryListState());
+  InventoryListCubit(this._repository) : super(const InventoryListState());
 
-  final InventoryApi _api;
+  final InventoryRepository _repository;
 
   static const int _pageSize = 50;
 
@@ -120,8 +123,8 @@ class InventoryListCubit extends Cubit<InventoryListState> {
       errorMessage: null,
     ));
     try {
-      final page = await _api.listItems(
-        search: search.isEmpty ? null : search,
+      final page = await _repository.getList(
+        search: search,
         filter: filter,
         page: 1,
         pageSize: _pageSize,
@@ -131,12 +134,6 @@ class InventoryListCubit extends Cubit<InventoryListState> {
         items: page.items,
         page: page.page,
         hasMore: page.hasMore,
-      ));
-    } on ApiException catch (e) {
-      emit(state.copyWith(
-        status: InventoryListStatus.error,
-        errorCode: e.code,
-        errorMessage: e.message,
       ));
     } catch (_) {
       emit(state.copyWith(
@@ -156,8 +153,8 @@ class InventoryListCubit extends Cubit<InventoryListState> {
     emit(state.copyWith(loadingMore: true));
     try {
       final next = state.page + 1;
-      final page = await _api.listItems(
-        search: state.search.isEmpty ? null : state.search,
+      final page = await _repository.getList(
+        search: state.search,
         filter: state.filter,
         page: next,
         pageSize: _pageSize,
@@ -168,15 +165,9 @@ class InventoryListCubit extends Cubit<InventoryListState> {
         hasMore: page.hasMore,
         loadingMore: false,
       ));
-    } on ApiException catch (e) {
+    } catch (_) {
       // A page-append failure keeps the already-loaded list; surface the code
       // without dropping to the full-screen error state.
-      emit(state.copyWith(
-        loadingMore: false,
-        errorCode: e.code,
-        errorMessage: e.message,
-      ));
-    } catch (_) {
       emit(state.copyWith(loadingMore: false, errorCode: ApiErrorCode.unknown));
     }
   }

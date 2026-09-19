@@ -1,15 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:iams_mobile/core/network/api_exception.dart';
-import 'package:iams_mobile/features/inventory/data/inventory_api.dart';
+import 'package:iams_mobile/features/inventory/data/inventory_repository.dart';
 import 'package:iams_mobile/features/inventory/data/models/inventory_enums.dart';
 import 'package:iams_mobile/features/inventory/data/models/inventory_item.dart';
 import 'package:iams_mobile/features/inventory/presentation/list/inventory_list_cubit.dart';
 import 'package:mocktail/mocktail.dart';
 
-class MockInventoryApi extends Mock implements InventoryApi {}
+class MockInventoryRepository extends Mock implements InventoryRepository {}
 
-InventoryItem _item(String id, {double qty = 5}) =>
-    InventoryItem(id: id, sku: id, name: 'Item $id', isActive: true, totalQuantityOnHand: qty);
+InventoryItem _item(String id, {double qty = 5}) => InventoryItem(
+    id: id, sku: id, name: 'Item $id', isActive: true, totalQuantityOnHand: qty);
 
 InventoryPage _page(List<InventoryItem> items,
         {int page = 1, bool hasMore = false}) =>
@@ -18,18 +17,18 @@ InventoryPage _page(List<InventoryItem> items,
 void main() {
   setUpAll(() => registerFallbackValue(InventoryFilter.all));
 
-  late MockInventoryApi api;
+  late MockInventoryRepository repo;
   late InventoryListCubit cubit;
 
   setUp(() {
-    api = MockInventoryApi();
-    cubit = InventoryListCubit(api);
+    repo = MockInventoryRepository();
+    cubit = InventoryListCubit(repo);
   });
 
   tearDown(() => cubit.close());
 
-  test('load populates items', () async {
-    when(() => api.listItems(
+  test('load reads the local repository (no API) and populates items', () async {
+    when(() => repo.getList(
             search: any(named: 'search'),
             filter: any(named: 'filter'),
             page: any(named: 'page'),
@@ -44,7 +43,7 @@ void main() {
   });
 
   test('empty result is the distinct empty state', () async {
-    when(() => api.listItems(
+    when(() => repo.getList(
             search: any(named: 'search'),
             filter: any(named: 'filter'),
             page: any(named: 'page'),
@@ -57,7 +56,7 @@ void main() {
   });
 
   test('setFilter reloads with the new filter', () async {
-    when(() => api.listItems(
+    when(() => repo.getList(
             search: any(named: 'search'),
             filter: any(named: 'filter'),
             page: any(named: 'page'),
@@ -67,21 +66,21 @@ void main() {
     await cubit.setFilter(InventoryFilter.lowStock);
 
     expect(cubit.state.filter, InventoryFilter.lowStock);
-    verify(() => api.listItems(
+    verify(() => repo.getList(
         search: any(named: 'search'),
         filter: InventoryFilter.lowStock,
         page: 1,
         pageSize: any(named: 'pageSize'))).called(1);
   });
 
-  test('loadMore appends the next page', () async {
-    when(() => api.listItems(
+  test('loadMore appends the next local page', () async {
+    when(() => repo.getList(
             search: any(named: 'search'),
             filter: any(named: 'filter'),
             page: 1,
             pageSize: any(named: 'pageSize')))
         .thenAnswer((_) async => _page([_item('a')], hasMore: true));
-    when(() => api.listItems(
+    when(() => repo.getList(
             search: any(named: 'search'),
             filter: any(named: 'filter'),
             page: 2,
@@ -95,18 +94,16 @@ void main() {
     expect(cubit.state.hasMore, isFalse);
   });
 
-  test('error surfaces a retryable error state', () async {
-    when(() => api.listItems(
+  test('a local read failure surfaces a retryable error state', () async {
+    when(() => repo.getList(
             search: any(named: 'search'),
             filter: any(named: 'filter'),
             page: any(named: 'page'),
             pageSize: any(named: 'pageSize')))
-        .thenThrow(const ApiException(
-            code: ApiErrorCode.network, message: 'offline'));
+        .thenThrow(Exception('sqlite boom'));
 
     await cubit.load();
 
     expect(cubit.state.status, InventoryListStatus.error);
-    expect(cubit.state.errorCode, ApiErrorCode.network);
   });
 }

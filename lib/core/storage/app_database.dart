@@ -18,7 +18,7 @@ class AppDatabase {
       // ignore: prefer_initializing_formals
       : _databaseName = databaseName;
 
-  static const int _version = 2;
+  static const int _version = 3;
 
   final String _databaseName;
 
@@ -56,6 +56,7 @@ class AppDatabase {
       ...hierarchySchema,
       ...syncMetadataSchema,
       ...inventorySchema, // v2 — F4 offline-first outbox + stock cache
+      ...inventoryMasterSchema, // v3 — offline-first inventory read cache
     ]) {
       batch.execute(statement);
     }
@@ -76,6 +77,14 @@ class AppDatabase {
         continue v2;
       v2:
       case 2:
+        // v2 → v3: add the offline-first inventory read cache (inventory_item
+        // master table + inventory reachability snapshot).
+        for (final statement in inventoryMasterSchema) {
+          batch.execute(statement);
+        }
+        continue v3;
+      v3:
+      case 3:
         break;
     }
     await batch.commit(noResult: true);

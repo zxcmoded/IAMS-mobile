@@ -1,7 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iams_mobile/features/inventory/data/inventory_api.dart';
-import 'package:iams_mobile/features/inventory/data/models/inventory_enums.dart';
+import 'package:iams_mobile/features/inventory/data/models/inventory_enums.dart'
+    show TransactionType, StockCountStatus;
 import 'package:mocktail/mocktail.dart';
 
 class MockDio extends Mock implements Dio {}
@@ -22,46 +23,11 @@ void main() {
     api = InventoryApi(dio);
   });
 
-  Map<String, dynamic>? capturedQuery() =>
-      verify(() => dio.get<Map<String, dynamic>>(
-            any(),
-            queryParameters: captureAny(named: 'queryParameters'),
-          )).captured.single as Map<String, dynamic>?;
-
   Map<String, dynamic>? capturedBody() =>
       verify(() => dio.post<Map<String, dynamic>>(
             any(),
             data: captureAny(named: 'data'),
           )).captured.single as Map<String, dynamic>?;
-
-  group('listItems query', () {
-    test('omits filter when `all`, keeps page/pageSize', () async {
-      when(() => dio.get<Map<String, dynamic>>(any(),
-              queryParameters: any(named: 'queryParameters')))
-          .thenAnswer((_) async =>
-              _res({'items': [], 'page': 1, 'pageSize': 50, 'hasMore': false}));
-
-      await api.listItems();
-
-      expect(capturedQuery(), {'page': 1, 'pageSize': 50});
-    });
-
-    test('includes search + filter token when set', () async {
-      when(() => dio.get<Map<String, dynamic>>(any(),
-              queryParameters: any(named: 'queryParameters')))
-          .thenAnswer((_) async =>
-              _res({'items': [], 'page': 1, 'pageSize': 50, 'hasMore': false}));
-
-      await api.listItems(search: 'wid', filter: InventoryFilter.lowStock);
-
-      expect(capturedQuery(), {
-        'search': 'wid',
-        'filter': 'low_stock',
-        'page': 1,
-        'pageSize': 50,
-      });
-    });
-  });
 
   group('mutation bodies', () {
     test('receive includes base version only when provided', () async {
@@ -161,23 +127,5 @@ void main() {
       expect(resp.status, StockCountStatus.pendingApproval);
       expect(resp.variance, 40);
     });
-  });
-
-  test('getItem hits the by-id path', () async {
-    when(() => dio.get<Map<String, dynamic>>(any())).thenAnswer((_) async =>
-        _res({
-          'id': 'i1',
-          'sku': 'S',
-          'name': 'N',
-          'isActive': true,
-          'totalQuantityOnHand': 3,
-          'stockByBin': [],
-          'movements': [],
-        }));
-
-    final detail = await api.getItem('i1');
-
-    expect(detail.id, 'i1');
-    verify(() => dio.get<Map<String, dynamic>>('/inventory/items/i1')).called(1);
   });
 }

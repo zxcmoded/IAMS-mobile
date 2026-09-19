@@ -2,11 +2,10 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
-import '../../data/models/cached_stock_level.dart';
 import '../../data/models/inventory_enums.dart';
 import '../../data/models/inventory_item_detail.dart';
 import '../../data/models/outbox_entry.dart';
-import '../../data/inventory_api.dart';
+import '../../data/inventory_repository.dart';
 import '../../data/outbox_repository.dart';
 
 /// One bin's on-hand as shown on item detail: the [observedQty] last confirmed
@@ -33,12 +32,13 @@ class BinStock extends Equatable {
   List<Object?> get props => [binId, observedQty, pendingDelta, version];
 }
 
-enum ItemDetailStatus { loading, loaded, offline, notFound, error }
+enum ItemDetailStatus { loading, loaded, notFound, error }
 
-/// State for the F4 Item Detail screen. [detail] is the authoritative online
-/// snapshot (null in the offline state, where [bins] is rebuilt from the local
-/// cache). [pending] lists this item's queued/conflicted mutations for the
-/// inline "pending sync" section.
+/// State for the F4 Item Detail screen. [detail] is the local-cache snapshot of
+/// the item (its master fields + confirmed per-bin on-hand); it is null only in
+/// the transient loading / notFound / error states. [bins] overlays this item's
+/// pending-outbox deltas on top of the confirmed on-hand. [pending] lists this
+/// item's queued/conflicted mutations for the inline "pending sync" section.
 class InventoryItemState extends Equatable {
   const InventoryItemState({
     this.status = ItemDetailStatus.loading,
@@ -65,7 +65,6 @@ class InventoryItemState extends Equatable {
   final String? errorCode;
   final String? errorMessage;
 
-  bool get isOffline => status == ItemDetailStatus.offline;
   bool get hasPending => pending.isNotEmpty;
 
   static const Object _unset = Object();
@@ -100,10 +99,10 @@ class InventoryItemState extends Equatable {
 }
 
 class InventoryItemCubit extends Cubit<InventoryItemState> {
-  InventoryItemCubit(this._api, this._outbox, {required this.itemId})
+  InventoryItemCubit(this._repository, this._outbox, {required this.itemId})
       : super(const InventoryItemState());
 
-  final InventoryApi _api;
+  final InventoryRepository _repository;
   final OutboxRepository _outbox;
   final String itemId;
 
@@ -112,6 +111,12 @@ class InventoryItemCubit extends Cubit<InventoryItemState> {
   static bool _overlays(OutboxEntry e) =>
       e.status == OutboxStatus.pending || e.status == OutboxStatus.conflict;
 
+  /// Reads the item **entirely from the local SQLite cache** — no API call.
+  /// The confirmed per-bin on-hand comes from the cache; this item's pending
+  /// outbox deltas are overlaid on top (so a just-queued mutation shows
+  /// immediately). "Not found" now means "not in the local cache" (not a server
+  /// 404) — i.e. not in the accessible/synced scope. Reading SQLite is
+  /// effectively instant, so the transient `loading` state is barely visible.
   Future<void> load() async {
     emit(state.copyWith(
       status: ItemDetailStatus.loading,
@@ -119,54 +124,22 @@ class InventoryItemCubit extends Cubit<InventoryItemState> {
       errorMessage: null,
     ));
     try {
-      final detail = await _api.getItem(itemId);
-      await _outbox.reconcileFromDetail(detail);
+      final detail = await _repository.getItemDetail(itemId);
       final pending = await _outbox.outboxForItem(itemId);
+      if (detail == null) {
+        emit(state.copyWith(
+          status: ItemDetailStatus.notFound,
+          detail: null,
+          bins: const [],
+          pending: _unsynced(pending),
+        ));
+        return;
+      }
       emit(state.copyWith(
         status: ItemDetailStatus.loaded,
         detail: detail,
         bins: _mergeFromDetail(detail, pending),
         pending: _unsynced(pending),
-      ));
-    } on ApiException catch (e) {
-      if (e.code == ApiErrorCode.notFound) {
-        // 404 is used even for out-of-scope ids (no existence leak) — present
-        // as "not available", not "deleted".
-        emit(state.copyWith(
-          status: ItemDetailStatus.notFound,
-          errorCode: e.code,
-          errorMessage: e.message,
-        ));
-        return;
-      }
-      if (e.isNetwork) {
-        await _loadOffline();
-        return;
-      }
-      emit(state.copyWith(
-        status: ItemDetailStatus.error,
-        errorCode: e.code,
-        errorMessage: e.message,
-      ));
-    } catch (_) {
-      await _loadOffline(fallbackMessage: 'Something went wrong.');
-    }
-  }
-
-  Future<void> refresh() => load();
-
-  Future<void> _loadOffline({String? fallbackMessage}) async {
-    try {
-      final cache = await _outbox.cachedLevelsForItem(itemId);
-      final pending = await _outbox.outboxForItem(itemId);
-      emit(state.copyWith(
-        status: ItemDetailStatus.offline,
-        detail: null,
-        bins: _mergeFromCache(cache, pending),
-        pending: _unsynced(pending),
-        errorCode: ApiErrorCode.network,
-        errorMessage:
-            fallbackMessage ?? 'Offline — showing your last synced data.',
       ));
     } catch (_) {
       emit(state.copyWith(
@@ -176,6 +149,8 @@ class InventoryItemCubit extends Cubit<InventoryItemState> {
       ));
     }
   }
+
+  Future<void> refresh() => load();
 
   /// Retry a conflicted/failed row (rebased) then reload to reflect the outcome.
   Future<void> retry(String idempotencyKey) async {
@@ -225,20 +200,6 @@ class InventoryItemCubit extends Cubit<InventoryItemState> {
   ) {
     final deltas = _pendingDeltas(pending);
     final observed = {for (final b in detail.stockByBin) b.binId: b};
-    return _combine(
-      binIds: {...observed.keys, ...deltas.keys},
-      observedQty: (id) => observed[id]?.quantityOnHand ?? 0,
-      version: (id) => observed[id]?.version,
-      deltas: deltas,
-    );
-  }
-
-  List<BinStock> _mergeFromCache(
-    List<CachedStockLevel> cache,
-    List<OutboxEntry> pending,
-  ) {
-    final deltas = _pendingDeltas(pending);
-    final observed = {for (final c in cache) c.binId: c};
     return _combine(
       binIds: {...observed.keys, ...deltas.keys},
       observedQty: (id) => observed[id]?.quantityOnHand ?? 0,

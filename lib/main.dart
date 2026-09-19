@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'core/di/service_locator.dart';
 import 'core/storage/app_database.dart';
+import 'core/sync/sync_coordinator.dart';
 import 'features/auth/presentation/controller/auth_controller.dart';
 
 Future<void> main() async {
@@ -14,5 +15,10 @@ Future<void> main() async {
   // Restore any persisted session before the first frame so the router lands
   // on the correct screen immediately.
   await sl<AuthController>().bootstrap();
+  // Wire the headless background sync (connectivity-gated, fire-and-forget). It
+  // never blocks the first frame or navigation to the Main Screen — if the
+  // restored session is already authenticated it kicks off a background pass;
+  // otherwise it waits for a later activation. Deliberately NOT awaited.
+  sl<SyncCoordinator>().start();
   runApp(const IamsApp());
 }

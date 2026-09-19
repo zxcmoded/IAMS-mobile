@@ -38,3 +38,46 @@ const List<String> inventorySchema = [
   )
   ''',
 ];
+
+/// DDL for the F4 **offline-first inventory read cache** — the master-data half
+/// of the inventory store, added in database schema **v3** (see [AppDatabase]).
+///
+/// - `inventory_item` — the SKU master mirrored from `GET /inventory/sync/items`
+///   (`InventoryItemSyncDto`). One row per item; `is_active = 0` marks a
+///   soft-deleted item that is upserted-and-kept (never hard-deleted on
+///   absence). It carries no foreign key to `company` on purpose: the inventory
+///   sync and the hierarchy sync run concurrently and independently, so an
+///   inventory row must be insertable before its company has been pulled. `sku`
+///   is indexed because the list view sorts by it (matching the server's
+///   `ORDER BY Sku, Id`).
+///   Per-bin on-hand is **not** stored here — it lives in `stock_version_cache`
+///   (already the reconcile target for the outbox mutation flow), which the
+///   list/detail read path joins against to compute aggregate on-hand.
+/// - `inventory_reachable_snapshot` — the set of company ids reachable as of the
+///   inventory sync's last pass. Diffed against a fresh full Company pull to
+///   detect a newly-reachable company (the backend's known `SyncCursorUtc` gap:
+///   enabling a connection does not bump that company's inventory rows' cursor)
+///   and force a full re-pull of both inventory feeds. This is inventory's own
+///   snapshot, kept separate from the hierarchy sync's `reachable_company_snapshot`
+///   so the two syncs never race on a shared diff basis.
+const List<String> inventoryMasterSchema = [
+  '''
+  CREATE TABLE inventory_item (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    sku TEXT NOT NULL,
+    barcode TEXT,
+    name TEXT NOT NULL,
+    description TEXT,
+    unit_of_measure TEXT,
+    category TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at_utc TEXT NOT NULL,
+    updated_at_utc TEXT
+  )
+  ''',
+  'CREATE INDEX idx_inventory_item_sku ON inventory_item(sku COLLATE NOCASE)',
+  'CREATE INDEX idx_inventory_item_company_id ON inventory_item(company_id)',
+  'CREATE TABLE inventory_reachable_snapshot (company_id TEXT PRIMARY KEY)',
+];

@@ -26,6 +26,17 @@ class InventoryItem extends Equatable {
 
   bool get isOutOfStock => totalQuantityOnHand <= 0;
 
+  InventoryItem copyWith({double? totalQuantityOnHand}) => InventoryItem(
+        id: id,
+        sku: sku,
+        name: name,
+        isActive: isActive,
+        totalQuantityOnHand: totalQuantityOnHand ?? this.totalQuantityOnHand,
+        barcode: barcode,
+        unitOfMeasure: unitOfMeasure,
+        category: category,
+      );
+
   factory InventoryItem.fromJson(Map<String, dynamic> json) => InventoryItem(
         id: json['id'] as String,
         sku: json['sku'] as String,

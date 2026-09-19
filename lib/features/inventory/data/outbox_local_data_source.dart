@@ -90,6 +90,22 @@ class OutboxLocalDataSource {
     return rows.map(OutboxEntry.fromRow).toList(growable: false);
   }
 
+  /// Every not-yet-synced mutation that should overlay its delta on read — i.e.
+  /// `pending` or `conflict` (the same rows the item-detail overlay applies).
+  /// Ordered oldest-first for deterministic accumulation. Powers the list
+  /// read path's pending overlay so a queued mutation is reflected in the
+  /// aggregate on-hand immediately, without waiting for a resync.
+  Future<List<OutboxEntry>> getOverlayEntries() async {
+    final db = await _db.instance;
+    final rows = await db.query(
+      _outbox,
+      where: 'status IN (?, ?)',
+      whereArgs: [OutboxStatus.pending.wire, OutboxStatus.conflict.wire],
+      orderBy: 'created_at_utc ASC, rowid ASC',
+    );
+    return rows.map(OutboxEntry.fromRow).toList(growable: false);
+  }
+
   /// Count of rows in any of [statuses] — powers the badge/summary affordances.
   Future<int> countByStatus(List<OutboxStatus> statuses) async {
     if (statuses.isEmpty) return 0;

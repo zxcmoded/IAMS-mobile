@@ -4,7 +4,6 @@ import '../../../core/util/uuid.dart';
 import 'inventory_api.dart';
 import 'models/cached_stock_level.dart';
 import 'models/inventory_enums.dart';
-import 'models/inventory_item_detail.dart';
 import 'models/outbox_entry.dart';
 import 'models/stock_conflict.dart';
 import 'models/stock_count_response.dart';
@@ -95,27 +94,12 @@ class OutboxRepository {
 
   // ---- Read passthroughs (for the detail cubit) ----------------------------
 
+  /// This item's queued/conflicted/failed mutations, for the inline "pending
+  /// sync" section. (The confirmed per-bin on-hand now comes from
+  /// `InventoryRepository` reading `stock_version_cache` directly; the detail
+  /// cubit overlays these outbox rows' deltas on top.)
   Future<List<OutboxEntry>> outboxForItem(String itemId) =>
       _local.getOutboxForItem(itemId);
-
-  Future<List<CachedStockLevel>> cachedLevelsForItem(String itemId) =>
-      _local.getStockLevelsForItem(itemId);
-
-  /// Reconcile the cache from a fresh authoritative item-detail fetch, so the
-  /// next offline mutation stamps up-to-date base versions.
-  Future<void> reconcileFromDetail(InventoryItemDetail detail) async {
-    final now = _now();
-    final levels = detail.stockByBin
-        .map((b) => CachedStockLevel(
-              inventoryItemId: detail.id,
-              binId: b.binId,
-              quantityOnHand: b.quantityOnHand,
-              version: b.version,
-              updatedAtUtc: now,
-            ))
-        .toList(growable: false);
-    await _local.upsertStockLevels(levels);
-  }
 
   // ---- Mutations ------------------------------------------------------------
 

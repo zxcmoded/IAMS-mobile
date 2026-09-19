@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/router/app_routes.dart';
-import '../../data/inventory_api.dart';
+import '../../data/inventory_repository.dart';
 import '../../data/models/inventory_enums.dart';
 import '../../data/models/inventory_item_detail.dart';
 import '../../data/models/outbox_entry.dart';
@@ -26,7 +26,7 @@ class InventoryItemScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<InventoryItemCubit>(
       create: (_) => InventoryItemCubit(
-        sl<InventoryApi>(),
+        sl<InventoryRepository>(),
         sl<OutboxRepository>(),
         itemId: itemId,
       )..load(),
@@ -71,7 +71,6 @@ class _ItemView extends StatelessWidget {
                   onRetry: () => context.read<InventoryItemCubit>().refresh(),
                 );
               case ItemDetailStatus.loaded:
-              case ItemDetailStatus.offline:
                 return _LoadedBody(state: state);
             }
           },
@@ -121,7 +120,6 @@ class _LoadedBody extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (state.isOffline) const _OfflineBanner(),
           _IdentityCard(detail: detail, state: state),
           const SizedBox(height: 16),
           _ActionsBar(onTap: (route) => _go(context, route)),
@@ -341,12 +339,12 @@ class _Movements extends StatelessWidget {
   Widget build(BuildContext context) {
     final movements = detail?.movements ?? const [];
     if (movements.isEmpty) {
-      return Card(
+      // Movement history rides `InventoryTransactions`, which isn't part of the
+      // offline sync yet — so it is never available in this local-only view.
+      return const Card(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(detail == null
-              ? 'Movement history is unavailable offline.'
-              : 'No movements yet.'),
+          padding: EdgeInsets.all(16),
+          child: Text("Movement history isn't available offline."),
         ),
       );
     }
@@ -375,33 +373,6 @@ class _Movements extends StatelessWidget {
         TransactionType.adjustment => Icons.tune,
         TransactionType.unknown => Icons.history,
       };
-}
-
-class _OfflineBanner extends StatelessWidget {
-  const _OfflineBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: scheme.tertiaryContainer.withValues(alpha: 0.4),
-      child: const Padding(
-        padding: EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(Icons.cloud_off),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                  'Offline — showing your last synced data. You can still '
-                  'receive, transfer, adjust, and count; changes queue and sync '
-                  'later.'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _NotFoundState extends StatelessWidget {

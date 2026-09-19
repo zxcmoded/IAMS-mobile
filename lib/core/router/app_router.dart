@@ -14,7 +14,6 @@ import '../../features/inventory/presentation/shared/mutation_args.dart';
 import '../../features/inventory/presentation/transfer/transfer_screen.dart';
 import '../../features/tenant/presentation/access/access_denied_screen.dart';
 import '../../features/tenant/presentation/access/cross_tenant_access_screen.dart';
-import '../../features/masterdata/presentation/sync/hierarchy_sync_screen.dart';
 import '../../features/scanning/presentation/manual_entry/manual_entry_screen.dart';
 import '../../features/scanning/presentation/scanner/scanner_screen.dart';
 import '../../features/tenant/presentation/scope/company_selector_screen.dart';
@@ -25,39 +24,50 @@ import 'go_router_refresh_stream.dart';
 /// Builds the app router. Redirects are driven by [AuthController] state so the
 /// user is always on a screen consistent with the session lifecycle:
 /// unauthenticated → Activation Key entry, sessionExpired → Session Expired,
-/// authenticated → the Sync screen (which then hands off to the Company
-/// Selector once the offline store is ready).
+/// authenticated → the Company Selector (the Main Screen) **immediately**.
+///
+/// There is no longer a blocking `/sync` gate: offline data sync runs headlessly
+/// in the background (see [SyncCoordinator]), never standing between auth and
+/// the Main Screen in either connectivity state.
+/// The pure redirect decision, factored out of [createRouter] so it is directly
+/// unit-testable (no widget pump / DI). Returns the location to redirect to, or
+/// `null` to stay put.
+///
+/// The key rule for this feature: an `authenticated` user lands on the Company
+/// Selector (`/companies`, the Main Screen) **immediately** — there is no
+/// blocking `/sync` gate. Sync runs headlessly in the background.
+String? redirectForAuth(AuthStatus status, String location) {
+  if (status == AuthStatus.unknown) {
+    return location == AppRoutes.splash ? null : AppRoutes.splash;
+  }
+
+  final onAuthFlow = location == AppRoutes.activation;
+
+  if (status == AuthStatus.sessionExpired) {
+    return location == AppRoutes.sessionExpired
+        ? null
+        : AppRoutes.sessionExpired;
+  }
+
+  if (status == AuthStatus.unauthenticated) {
+    return onAuthFlow ? null : AppRoutes.activation;
+  }
+
+  // authenticated — land on the Company Selector (Main Screen) immediately.
+  if (onAuthFlow ||
+      location == AppRoutes.splash ||
+      location == AppRoutes.sessionExpired) {
+    return AppRoutes.companies;
+  }
+  return null;
+}
+
 GoRouter createRouter(AuthController auth) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
     refreshListenable: GoRouterRefreshStream(auth.stream),
-    redirect: (context, state) {
-      final status = auth.state.status;
-      final loc = state.matchedLocation;
-
-      if (status == AuthStatus.unknown) {
-        return loc == AppRoutes.splash ? null : AppRoutes.splash;
-      }
-
-      final onAuthFlow = loc == AppRoutes.activation;
-
-      if (status == AuthStatus.sessionExpired) {
-        return loc == AppRoutes.sessionExpired ? null : AppRoutes.sessionExpired;
-      }
-
-      if (status == AuthStatus.unauthenticated) {
-        return onAuthFlow ? null : AppRoutes.activation;
-      }
-
-      // authenticated — land on the sync screen, which ensures the offline
-      // store is ready before handing off to /companies itself.
-      if (onAuthFlow ||
-          loc == AppRoutes.splash ||
-          loc == AppRoutes.sessionExpired) {
-        return AppRoutes.sync;
-      }
-      return null;
-    },
+    redirect: (context, state) =>
+        redirectForAuth(auth.state.status, state.matchedLocation),
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -70,10 +80,6 @@ GoRouter createRouter(AuthController auth) {
       GoRoute(
         path: AppRoutes.sessionExpired,
         builder: (_, _) => const SessionExpiredScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.sync,
-        builder: (_, _) => const HierarchySyncScreen(),
       ),
       GoRoute(
         path: AppRoutes.companies,
@@ -146,8 +152,23 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/giso_logo.png',
+              width: 160,
+              semanticLabel: 'GISO logo',
+            ),
+            const SizedBox(height: 32),
+            CircularProgressIndicator(color: colorScheme.primary),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,16 +1,20 @@
 import 'package:dio/dio.dart';
 
-import 'models/inventory_enums.dart';
-import 'models/inventory_item.dart';
-import 'models/inventory_item_detail.dart';
 import 'models/stock_count_response.dart';
 import 'models/stock_movement_response.dart';
 
-/// Typed client for the F4 inventory endpoints. Uses the *authenticated* Dio,
-/// so the Bearer token is attached, a 401 invalidates the stored session, and
-/// the shared `ErrorInterceptor` normalizes any response ≥ 300 into a typed
-/// `ApiException` (including the Phase-2a `stock_version_conflict` /
-/// `insufficient_stock` / `stock_count_not_pending` codes).
+/// Typed client for the F4 inventory **mutation** endpoints. Uses the
+/// *authenticated* Dio, so the Bearer token is attached, a 401 invalidates the
+/// stored session, and the shared `ErrorInterceptor` normalizes any response
+/// ≥ 300 into a typed `ApiException` (including the Phase-2a
+/// `stock_version_conflict` / `insufficient_stock` / `stock_count_not_pending`
+/// codes).
+///
+/// There are **no read methods here anymore**: the list/detail/search/filter
+/// surfaces are served entirely from local SQLite (`InventoryRepository`), and
+/// the only inventory API traffic besides these mutations is the background
+/// sync feed (`InventorySyncApi`). This keeps the offline-first guarantee
+/// structural — a read path has no API client to call.
 ///
 /// Mutation methods take a client-generated [idempotencyKey] (stable across
 /// retries) and optional `base*StockVersion` stamps. **Passing `null` for a
@@ -22,34 +26,6 @@ class InventoryApi {
   InventoryApi(this._dio);
 
   final Dio _dio;
-
-  // ---- Reads ----------------------------------------------------------------
-
-  Future<InventoryPage> listItems({
-    String? search,
-    InventoryFilter filter = InventoryFilter.all,
-    double? lowStockThreshold,
-    int page = 1,
-    int pageSize = 50,
-  }) async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/inventory/items',
-      queryParameters: {
-        if (search != null && search.isNotEmpty) 'search': search,
-        // `all` is the server default — omit it so the request stays minimal.
-        if (filter != InventoryFilter.all) 'filter': filter.wire,
-        'lowStockThreshold': ?lowStockThreshold,
-        'page': page,
-        'pageSize': pageSize,
-      },
-    );
-    return InventoryPage.fromJson(res.data!);
-  }
-
-  Future<InventoryItemDetail> getItem(String id) async {
-    final res = await _dio.get<Map<String, dynamic>>('/inventory/items/$id');
-    return InventoryItemDetail.fromJson(res.data!);
-  }
 
   // ---- Mutations ------------------------------------------------------------
 
