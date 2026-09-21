@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../core/network/api_call.dart';
 import 'models/stock_count_response.dart';
 import 'models/stock_movement_response.dart';
 
@@ -37,20 +38,21 @@ class InventoryApi {
     int? baseDestinationStockVersion,
     String? deviceId,
     DateTime? clientCreatedAtUtc,
-  }) async {
-    final res = await _dio.post<Map<String, dynamic>>(
-      '/inventory/receive',
-      data: {
-        'idempotencyKey': idempotencyKey,
-        'inventoryItemId': inventoryItemId,
-        'destinationBinId': destinationBinId,
-        'quantity': quantity,
-        'baseDestinationStockVersion': ?baseDestinationStockVersion,
-        ..._audit(deviceId, clientCreatedAtUtc),
-      },
-    );
-    return StockMovementResponse.fromJson(res.data!);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '/inventory/receive',
+          data: {
+            'idempotencyKey': idempotencyKey,
+            'inventoryItemId': inventoryItemId,
+            'destinationBinId': destinationBinId,
+            'quantity': quantity,
+            'baseDestinationStockVersion': ?baseDestinationStockVersion,
+            ..._audit(deviceId, clientCreatedAtUtc),
+          },
+        );
+        return StockMovementResponse.fromJson(res.data!);
+      });
 
   Future<StockMovementResponse> transfer({
     required String idempotencyKey,
@@ -62,22 +64,23 @@ class InventoryApi {
     int? baseDestinationStockVersion,
     String? deviceId,
     DateTime? clientCreatedAtUtc,
-  }) async {
-    final res = await _dio.post<Map<String, dynamic>>(
-      '/inventory/transfer',
-      data: {
-        'idempotencyKey': idempotencyKey,
-        'inventoryItemId': inventoryItemId,
-        'sourceBinId': sourceBinId,
-        'destinationBinId': destinationBinId,
-        'quantity': quantity,
-        'baseSourceStockVersion': ?baseSourceStockVersion,
-        'baseDestinationStockVersion': ?baseDestinationStockVersion,
-        ..._audit(deviceId, clientCreatedAtUtc),
-      },
-    );
-    return StockMovementResponse.fromJson(res.data!);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '/inventory/transfer',
+          data: {
+            'idempotencyKey': idempotencyKey,
+            'inventoryItemId': inventoryItemId,
+            'sourceBinId': sourceBinId,
+            'destinationBinId': destinationBinId,
+            'quantity': quantity,
+            'baseSourceStockVersion': ?baseSourceStockVersion,
+            'baseDestinationStockVersion': ?baseDestinationStockVersion,
+            ..._audit(deviceId, clientCreatedAtUtc),
+          },
+        );
+        return StockMovementResponse.fromJson(res.data!);
+      });
 
   Future<StockMovementResponse> adjust({
     required String idempotencyKey,
@@ -88,21 +91,22 @@ class InventoryApi {
     int? baseStockVersion,
     String? deviceId,
     DateTime? clientCreatedAtUtc,
-  }) async {
-    final res = await _dio.post<Map<String, dynamic>>(
-      '/inventory/adjust',
-      data: {
-        'idempotencyKey': idempotencyKey,
-        'inventoryItemId': inventoryItemId,
-        'binId': binId,
-        'quantityDelta': quantityDelta,
-        'reason': reason,
-        'baseStockVersion': ?baseStockVersion,
-        ..._audit(deviceId, clientCreatedAtUtc),
-      },
-    );
-    return StockMovementResponse.fromJson(res.data!);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '/inventory/adjust',
+          data: {
+            'idempotencyKey': idempotencyKey,
+            'inventoryItemId': inventoryItemId,
+            'binId': binId,
+            'quantityDelta': quantityDelta,
+            'reason': reason,
+            'baseStockVersion': ?baseStockVersion,
+            ..._audit(deviceId, clientCreatedAtUtc),
+          },
+        );
+        return StockMovementResponse.fromJson(res.data!);
+      });
 
   Future<StockCountResponse> count({
     required String idempotencyKey,
@@ -112,36 +116,38 @@ class InventoryApi {
     int? baseStockVersion,
     String? deviceId,
     DateTime? clientCreatedAtUtc,
-  }) async {
-    final res = await _dio.post<Map<String, dynamic>>(
-      '/inventory/counts',
-      data: {
-        'idempotencyKey': idempotencyKey,
-        'inventoryItemId': inventoryItemId,
-        'binId': binId,
-        'countedQuantity': countedQuantity,
-        'baseStockVersion': ?baseStockVersion,
-        ..._audit(deviceId, clientCreatedAtUtc),
-      },
-    );
-    return StockCountResponse.fromJson(res.data!);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '/inventory/counts',
+          data: {
+            'idempotencyKey': idempotencyKey,
+            'inventoryItemId': inventoryItemId,
+            'binId': binId,
+            'countedQuantity': countedQuantity,
+            'baseStockVersion': ?baseStockVersion,
+            ..._audit(deviceId, clientCreatedAtUtc),
+          },
+        );
+        return StockCountResponse.fromJson(res.data!);
+      });
 
-  Future<StockCountResponse> approveCount(String id) async {
-    final res =
-        await _dio.post<Map<String, dynamic>>('/inventory/counts/$id/approve');
-    return StockCountResponse.fromJson(res.data!);
-  }
+  Future<StockCountResponse> approveCount(String id) => unwrapApiErrors(() async {
+        final res = await _dio
+            .post<Map<String, dynamic>>('/inventory/counts/$id/approve');
+        return StockCountResponse.fromJson(res.data!);
+      });
 
-  Future<StockCountResponse> rejectCount(String id, {String? reason}) async {
-    final res = await _dio.post<Map<String, dynamic>>(
-      '/inventory/counts/$id/reject',
-      data: {
-        if (reason != null && reason.isNotEmpty) 'reason': reason,
-      },
-    );
-    return StockCountResponse.fromJson(res.data!);
-  }
+  Future<StockCountResponse> rejectCount(String id, {String? reason}) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '/inventory/counts/$id/reject',
+          data: {
+            if (reason != null && reason.isNotEmpty) 'reason': reason,
+          },
+        );
+        return StockCountResponse.fromJson(res.data!);
+      });
 
   Map<String, dynamic> _audit(String? deviceId, DateTime? clientCreatedAtUtc) =>
       {

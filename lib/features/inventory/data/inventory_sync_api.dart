@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../core/network/api_call.dart';
 import '../../masterdata/data/models/master_data_page.dart';
 import 'models/inventory_item_sync.dart';
 import 'models/stock_level_sync.dart';
@@ -27,24 +28,26 @@ class InventorySyncApi {
   Future<MasterDataPage<InventoryItemSync>> getItems({
     String? cursor,
     int? pageSize,
-  }) async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/inventory/sync/items',
-      queryParameters: _query(cursor: cursor, pageSize: pageSize),
-    );
-    return MasterDataPage.fromJson(res.data!, InventoryItemSync.fromJson);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '/inventory/sync/items',
+          queryParameters: _query(cursor: cursor, pageSize: pageSize),
+        );
+        return MasterDataPage.fromJson(res.data!, InventoryItemSync.fromJson);
+      });
 
   Future<MasterDataPage<StockLevelSync>> getStockLevels({
     String? cursor,
     int? pageSize,
-  }) async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/inventory/sync/stock-levels',
-      queryParameters: _query(cursor: cursor, pageSize: pageSize),
-    );
-    return MasterDataPage.fromJson(res.data!, StockLevelSync.fromJson);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '/inventory/sync/stock-levels',
+          queryParameters: _query(cursor: cursor, pageSize: pageSize),
+        );
+        return MasterDataPage.fromJson(res.data!, StockLevelSync.fromJson);
+      });
 
   Map<String, dynamic> _query({String? cursor, int? pageSize}) => {
         if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,

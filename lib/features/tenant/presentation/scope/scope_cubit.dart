@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -60,13 +62,23 @@ class ScopeCubit extends Cubit<ScopeState> {
         // ApiExceptions keep their own [message].
         errorMessage: e.isNetwork ? _offlineMessage : e.message,
       ));
-    } catch (_) {
+    } catch (e, st) {
       // Catch-all for non-[ApiException] failures — e.g. a PlatformException
-      // from secure storage or a TypeError/FormatException parsing an
-      // unexpected response. Without this the Future error would go unhandled
-      // and the cubit would stay in [ScopeStatus.loading] forever (spinner
-      // spins, no error shown). Surface a generic message rather than leaking
-      // raw exception text to the UI.
+      // from secure storage, a TypeError/FormatException parsing an
+      // unexpected response, or (historically — see [unwrapApiErrors]) a raw
+      // [DioException] escaping the data layer. Without this the Future
+      // error would go unhandled and the cubit would stay in
+      // [ScopeStatus.loading] forever (spinner spins, no error shown).
+      // Surface a generic message rather than leaking raw exception text to
+      // the UI, but log the real exception+stack trace so a swallowed
+      // failure is never invisible to diagnostics again.
+      developer.log(
+        'ScopeCubit.load failed with a non-ApiException error',
+        name: 'ScopeCubit',
+        error: e,
+        stackTrace: st,
+        level: 1000, // SEVERE
+      );
       emit(const ScopeState(
         status: ScopeStatus.error,
         errorCode: ApiErrorCode.unknown,

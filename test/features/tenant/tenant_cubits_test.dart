@@ -1,4 +1,5 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iams_mobile/core/network/api_exception.dart';
 import 'package:iams_mobile/features/auth/data/models/auth_user.dart';
@@ -137,6 +138,35 @@ void main() {
       'in loading',
       build: () {
         when(repo.loadScope).thenThrow(StateError('secure storage unavailable'));
+        return ScopeCubit(repo);
+      },
+      act: (c) => c.load(),
+      skip: 1,
+      expect: () => [
+        isA<ScopeState>()
+            .having((s) => s.status, 'status', ScopeStatus.error)
+            .having((s) => s.errorCode, 'code', ApiErrorCode.unknown)
+            .having((s) => s.errorMessage, 'message', isNotNull)
+            .having((s) => s.errorMessage, 'message',
+                contains('Something went wrong')),
+      ],
+    );
+
+    // Regression coverage for the real Companies-screen bug: a raw
+    // [DioException] — the exact exception type observed escaping the data
+    // layer before `TenantApi`/`unwrapApiErrors` was fixed to unwrap it back
+    // into the mapped [ApiException] — must not match `on ApiException catch`
+    // and must not leave the cubit stuck in [ScopeStatus.loading]. This is
+    // defense-in-depth: with the data-layer fix in place `TenantRepository`
+    // should never actually surface a bare [DioException] anymore, but the
+    // cubit's own catch-all must still behave correctly if one ever does.
+    blocTest<ScopeCubit, ScopeState>(
+      'a raw DioException (not unwrapped to ApiException) → generic error, '
+      'not stuck in loading',
+      build: () {
+        when(repo.loadScope).thenThrow(
+          DioException(requestOptions: RequestOptions(path: '/me/scope')),
+        );
         return ScopeCubit(repo);
       },
       act: (c) => c.load(),

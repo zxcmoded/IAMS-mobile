@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../core/network/api_call.dart';
 import 'models/bin.dart';
 import 'models/company.dart';
 import 'models/location.dart';
@@ -24,65 +25,70 @@ class HierarchyApi {
   Future<MasterDataPage<Company>> getCompanies({
     String? cursor,
     int? pageSize,
-  }) async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/master-data/companies',
-      queryParameters: _query(cursor: cursor, pageSize: pageSize),
-    );
-    return MasterDataPage.fromJson(res.data!, Company.fromJson);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '/master-data/companies',
+          queryParameters: _query(cursor: cursor, pageSize: pageSize),
+        );
+        return MasterDataPage.fromJson(res.data!, Company.fromJson);
+      });
 
   Future<MasterDataPage<Location>> getLocations({
     String? parentId,
     String? cursor,
     int? pageSize,
-  }) async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/master-data/locations',
-      queryParameters:
-          _query(parentId: parentId, cursor: cursor, pageSize: pageSize),
-    );
-    return MasterDataPage.fromJson(res.data!, Location.fromJson);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '/master-data/locations',
+          queryParameters:
+              _query(parentId: parentId, cursor: cursor, pageSize: pageSize),
+        );
+        return MasterDataPage.fromJson(res.data!, Location.fromJson);
+      });
 
   Future<MasterDataPage<Warehouse>> getWarehouses({
     String? parentId,
     String? cursor,
     int? pageSize,
-  }) async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/master-data/warehouses',
-      queryParameters:
-          _query(parentId: parentId, cursor: cursor, pageSize: pageSize),
-    );
-    return MasterDataPage.fromJson(res.data!, Warehouse.fromJson);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '/master-data/warehouses',
+          queryParameters:
+              _query(parentId: parentId, cursor: cursor, pageSize: pageSize),
+        );
+        return MasterDataPage.fromJson(res.data!, Warehouse.fromJson);
+      });
 
   Future<MasterDataPage<Rack>> getRacks({
     String? parentId,
     String? cursor,
     int? pageSize,
-  }) async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/master-data/racks',
-      queryParameters:
-          _query(parentId: parentId, cursor: cursor, pageSize: pageSize),
-    );
-    return MasterDataPage.fromJson(res.data!, Rack.fromJson);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '/master-data/racks',
+          queryParameters:
+              _query(parentId: parentId, cursor: cursor, pageSize: pageSize),
+        );
+        return MasterDataPage.fromJson(res.data!, Rack.fromJson);
+      });
 
   Future<MasterDataPage<Bin>> getBins({
     String? parentId,
     String? cursor,
     int? pageSize,
-  }) async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/master-data/bins',
-      queryParameters:
-          _query(parentId: parentId, cursor: cursor, pageSize: pageSize),
-    );
-    return MasterDataPage.fromJson(res.data!, Bin.fromJson);
-  }
+  }) =>
+      unwrapApiErrors(() async {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '/master-data/bins',
+          queryParameters:
+              _query(parentId: parentId, cursor: cursor, pageSize: pageSize),
+        );
+        return MasterDataPage.fromJson(res.data!, Bin.fromJson);
+      });
 
   /// Builds the query map, omitting any null/empty param so the server sees
   /// "absent" (start-of-world / no parent filter) rather than an empty string.
