@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/audit/presentation/audit_screen.dart';
 import '../../features/auth/presentation/activation/activation_screen.dart';
 import '../../features/auth/presentation/controller/auth_controller.dart';
 import '../../features/auth/presentation/controller/auth_state.dart';
@@ -16,6 +17,8 @@ import '../../features/access/presentation/access_denied/access_denied_screen.da
 import '../../features/access/presentation/home/home_screen.dart';
 import '../../features/scanning/presentation/manual_entry/manual_entry_screen.dart';
 import '../../features/scanning/presentation/scanner/scanner_screen.dart';
+import '../../features/settings/presentation/settings_screen.dart';
+import '../navigation/main_shell.dart';
 import 'app_routes.dart';
 import 'go_router_refresh_stream.dart';
 
@@ -79,9 +82,50 @@ GoRouter createRouter(AuthController auth) {
         path: AppRoutes.sessionExpired,
         builder: (_, _) => const SessionExpiredScreen(),
       ),
-      GoRoute(
-        path: AppRoutes.home,
-        builder: (_, _) => const HomeScreen(),
+      // Persistent bottom-nav tabs (Home | Inventory | Audit | Settings).
+      // `StatefulShellRoute.indexedStack` keeps each branch's own navigation
+      // state alive (via IndexedStack) across tab switches. Sub-routes that
+      // should push full-screen *over* the shell (inventory item detail,
+      // receive/transfer/adjust/count, scanner, manual entry) are kept as
+      // top-level sibling routes below, exactly as before — they are not
+      // nested inside a branch, so they are not tabs themselves.
+      StatefulShellRoute.indexedStack(
+        builder: (_, _, navigationShell) =>
+            MainShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.home,
+                builder: (_, _) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.inventory,
+                builder: (_, _) => const InventoryListScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.audit,
+                builder: (_, _) => const AuditScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.settings,
+                builder: (_, _) => const SettingsScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.accessDenied,
@@ -99,11 +143,7 @@ GoRouter createRouter(AuthController auth) {
         builder: (_, _) => const ManualEntryScreen(),
       ),
 
-      // F4 — Inventory Operations
-      GoRoute(
-        path: AppRoutes.inventory,
-        builder: (_, _) => const InventoryListScreen(),
-      ),
+      // F4 — Inventory Operations (list itself is the Inventory tab, above)
       GoRoute(
         path: AppRoutes.inventoryItem,
         builder: (_, state) => InventoryItemScreen(

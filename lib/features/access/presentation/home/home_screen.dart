@@ -63,29 +63,8 @@ class _HomeView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home'),
+        title: const Text('Dashboard'),
         actions: [
-          IconButton(
-            tooltip: 'Scan',
-            icon: const Icon(Icons.qr_code_scanner),
-            onPressed: () => context.push(AppRoutes.scanner),
-          ),
-          IconButton(
-            tooltip: 'Inventory',
-            icon: const Icon(Icons.inventory_2_outlined),
-            onPressed: () => context.push(AppRoutes.inventory),
-          ),
-          // Tap: sign out but keep this device remembered (one-tap resume on
-          // the Activation screen). Long-press: also forget the remembered key,
-          // for a shared/kiosk device being handed off. Forgetting is
-          // destructive (it forces a full manual key re-entry later), so it
-          // always goes through a confirmation dialog before it runs.
-          //
-          // Uses IconButton's own onLongPress (rather than wrapping it in a
-          // separate GestureDetector) because IconButton also owns the
-          // tooltip's internal LongPressGestureRecognizer — a sibling
-          // GestureDetector competes with that recognizer in the same gesture
-          // arena and can lose to it, silently swallowing the long press.
           IconButton(
             key: const Key('home_sign_out'),
             tooltip: 'Sign out (long-press to also forget this device)',

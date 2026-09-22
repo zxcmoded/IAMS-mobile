@@ -10,6 +10,10 @@ class AppRoutes {
   static const home = '/home';
   static const accessDenied = '/access/denied';
 
+  // Bottom navigation tabs
+  static const audit = '/audit';
+  static const settings = '/settings';
+
   // F3 — Scanning
   static const scanner = '/scan';
   static const manualEntry = '/scan/manual';
