@@ -9,7 +9,6 @@ import 'package:equatable/equatable.dart';
 class Company extends Equatable {
   const Company({
     required this.id,
-    required this.tenantId,
     required this.name,
     required this.isActive,
     required this.createdAtUtc,
@@ -17,7 +16,6 @@ class Company extends Equatable {
   });
 
   final String id;
-  final String tenantId;
   final String name;
   final bool isActive;
   final DateTime createdAtUtc;
@@ -25,7 +23,6 @@ class Company extends Equatable {
 
   factory Company.fromJson(Map<String, dynamic> json) => Company(
         id: json['id'] as String,
-        tenantId: json['tenantId'] as String,
         name: json['name'] as String,
         isActive: json['isActive'] as bool,
         createdAtUtc: DateTime.parse(json['createdAtUtc'] as String).toUtc(),
@@ -36,7 +33,6 @@ class Company extends Equatable {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'tenantId': tenantId,
         'name': name,
         'isActive': isActive,
         'createdAtUtc': createdAtUtc.toIso8601String(),
@@ -45,7 +41,6 @@ class Company extends Equatable {
 
   factory Company.fromRow(Map<String, Object?> row) => Company(
         id: row['id'] as String,
-        tenantId: row['tenant_id'] as String,
         name: row['name'] as String,
         isActive: (row['is_active'] as int) != 0,
         createdAtUtc: DateTime.parse(row['created_at_utc'] as String).toUtc(),
@@ -56,7 +51,6 @@ class Company extends Equatable {
 
   Map<String, Object?> toRow() => {
         'id': id,
-        'tenant_id': tenantId,
         'name': name,
         'is_active': isActive ? 1 : 0,
         'created_at_utc': createdAtUtc.toIso8601String(),
@@ -65,5 +59,5 @@ class Company extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, tenantId, name, isActive, createdAtUtc, updatedAtUtc];
+      [id, name, isActive, createdAtUtc, updatedAtUtc];
 }

@@ -12,19 +12,17 @@ import '../../features/inventory/presentation/list/inventory_list_screen.dart';
 import '../../features/inventory/presentation/receive/receive_screen.dart';
 import '../../features/inventory/presentation/shared/mutation_args.dart';
 import '../../features/inventory/presentation/transfer/transfer_screen.dart';
-import '../../features/tenant/presentation/access/access_denied_screen.dart';
-import '../../features/tenant/presentation/access/cross_tenant_access_screen.dart';
+import '../../features/access/presentation/access_denied/access_denied_screen.dart';
+import '../../features/access/presentation/home/home_screen.dart';
 import '../../features/scanning/presentation/manual_entry/manual_entry_screen.dart';
 import '../../features/scanning/presentation/scanner/scanner_screen.dart';
-import '../../features/tenant/presentation/scope/company_selector_screen.dart';
-import '../../features/tenant/presentation/scope/connection_scope_screen.dart';
 import 'app_routes.dart';
 import 'go_router_refresh_stream.dart';
 
 /// Builds the app router. Redirects are driven by [AuthController] state so the
 /// user is always on a screen consistent with the session lifecycle:
 /// unauthenticated → Activation Key entry, sessionExpired → Session Expired,
-/// authenticated → the Company Selector (the Main Screen) **immediately**.
+/// authenticated → the Home screen (the Main Screen) **immediately**.
 ///
 /// There is no longer a blocking `/sync` gate: offline data sync runs headlessly
 /// in the background (see [SyncCoordinator]), never standing between auth and
@@ -33,9 +31,9 @@ import 'go_router_refresh_stream.dart';
 /// unit-testable (no widget pump / DI). Returns the location to redirect to, or
 /// `null` to stay put.
 ///
-/// The key rule for this feature: an `authenticated` user lands on the Company
-/// Selector (`/companies`, the Main Screen) **immediately** — there is no
-/// blocking `/sync` gate. Sync runs headlessly in the background.
+/// The key rule for this feature: an `authenticated` user lands on the Home
+/// screen (`/home`, the Main Screen) **immediately** — there is no blocking
+/// `/sync` gate. Sync runs headlessly in the background.
 String? redirectForAuth(AuthStatus status, String location) {
   if (status == AuthStatus.unknown) {
     return location == AppRoutes.splash ? null : AppRoutes.splash;
@@ -53,11 +51,11 @@ String? redirectForAuth(AuthStatus status, String location) {
     return onAuthFlow ? null : AppRoutes.activation;
   }
 
-  // authenticated — land on the Company Selector (Main Screen) immediately.
+  // authenticated — land on the Home screen (Main Screen) immediately.
   if (onAuthFlow ||
       location == AppRoutes.splash ||
       location == AppRoutes.sessionExpired) {
-    return AppRoutes.companies;
+    return AppRoutes.home;
   }
   return null;
 }
@@ -82,24 +80,13 @@ GoRouter createRouter(AuthController auth) {
         builder: (_, _) => const SessionExpiredScreen(),
       ),
       GoRoute(
-        path: AppRoutes.companies,
-        builder: (_, _) => const CompanySelectorScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.connectionScope,
-        builder: (_, state) =>
-            ConnectionScopeScreen(args: state.extra as ConnectionScopeArgs),
-      ),
-      GoRoute(
-        path: AppRoutes.crossTenantAccess,
-        builder: (_, state) => CrossTenantAccessScreen(
-          args: state.extra as CrossTenantAccessArgs,
-        ),
+        path: AppRoutes.home,
+        builder: (_, _) => const HomeScreen(),
       ),
       GoRoute(
         path: AppRoutes.accessDenied,
         builder: (_, state) =>
-            AccessDeniedScreen(args: state.extra as AccessDeniedArgs),
+            AccessDeniedScreen(args: state.extra as AccessDeniedArgs?),
       ),
 
       // F3 — Scanning

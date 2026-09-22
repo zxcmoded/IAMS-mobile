@@ -5,7 +5,6 @@ import 'package:equatable/equatable.dart';
 class Warehouse extends Equatable {
   const Warehouse({
     required this.id,
-    required this.tenantId,
     required this.locationId,
     required this.companyId,
     required this.name,
@@ -15,7 +14,6 @@ class Warehouse extends Equatable {
   });
 
   final String id;
-  final String tenantId;
   final String locationId;
   final String companyId;
   final String name;
@@ -25,7 +23,6 @@ class Warehouse extends Equatable {
 
   factory Warehouse.fromJson(Map<String, dynamic> json) => Warehouse(
         id: json['id'] as String,
-        tenantId: json['tenantId'] as String,
         locationId: json['locationId'] as String,
         companyId: json['companyId'] as String,
         name: json['name'] as String,
@@ -38,7 +35,6 @@ class Warehouse extends Equatable {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'tenantId': tenantId,
         'locationId': locationId,
         'companyId': companyId,
         'name': name,
@@ -49,7 +45,6 @@ class Warehouse extends Equatable {
 
   factory Warehouse.fromRow(Map<String, Object?> row) => Warehouse(
         id: row['id'] as String,
-        tenantId: row['tenant_id'] as String,
         locationId: row['location_id'] as String,
         companyId: row['company_id'] as String,
         name: row['name'] as String,
@@ -62,7 +57,6 @@ class Warehouse extends Equatable {
 
   Map<String, Object?> toRow() => {
         'id': id,
-        'tenant_id': tenantId,
         'location_id': locationId,
         'company_id': companyId,
         'name': name,
@@ -74,7 +68,6 @@ class Warehouse extends Equatable {
   @override
   List<Object?> get props => [
         id,
-        tenantId,
         locationId,
         companyId,
         name,

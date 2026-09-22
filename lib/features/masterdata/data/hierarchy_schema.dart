@@ -1,8 +1,8 @@
 /// DDL for the master-data hierarchy tables (Company → Location → Warehouse →
 /// Rack → Bin). Each level stores every denormalized ancestor id present on the
-/// backend DTO, including `tenant_id` on every table (not FK'd to anything
-/// locally, mirrored from the server for parity). `is_active` is `0`/`1`;
-/// timestamps are ISO-8601 strings; `updated_at_utc`/`region` are nullable.
+/// backend DTO (`company_id` down to the leaf), mirrored from the server for
+/// local joins/filtering. `is_active` is `0`/`1`; timestamps are ISO-8601
+/// strings; `updated_at_utc`/`region` are nullable.
 ///
 /// Executed once by [AppDatabase]'s `onCreate`. Foreign keys are enforced
 /// (`PRAGMA foreign_keys = ON` in `onConfigure`), so parents must be upserted
@@ -11,7 +11,6 @@ const List<String> hierarchySchema = [
   '''
   CREATE TABLE company (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
     name TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at_utc TEXT NOT NULL,
@@ -21,7 +20,6 @@ const List<String> hierarchySchema = [
   '''
   CREATE TABLE location (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
     company_id TEXT NOT NULL REFERENCES company(id),
     name TEXT NOT NULL,
     region TEXT,
@@ -34,7 +32,6 @@ const List<String> hierarchySchema = [
   '''
   CREATE TABLE warehouse (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
     location_id TEXT NOT NULL REFERENCES location(id),
     company_id TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -48,7 +45,6 @@ const List<String> hierarchySchema = [
   '''
   CREATE TABLE rack (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
     warehouse_id TEXT NOT NULL REFERENCES warehouse(id),
     location_id TEXT NOT NULL,
     company_id TEXT NOT NULL,
@@ -63,7 +59,6 @@ const List<String> hierarchySchema = [
   '''
   CREATE TABLE bin (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
     rack_id TEXT NOT NULL REFERENCES rack(id),
     warehouse_id TEXT NOT NULL,
     location_id TEXT NOT NULL,

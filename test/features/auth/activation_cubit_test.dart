@@ -108,28 +108,6 @@ void main() {
     );
 
     blocTest<ActivationCubit, ActivationState>(
-      'no_active_company → terminal with a distinct message',
-      build: () {
-        when(() => repo.activate(any())).thenThrow(const ApiException(
-          code: ApiErrorCode.noActiveCompany,
-          statusCode: 403,
-          message: 'mock message from backend',
-        ));
-        return ActivationCubit(repo, remembered);
-      },
-      act: (c) => c.submit(activationKey: 'valid-key'),
-      expect: () => [
-        isA<ActivationState>()
-            .having((s) => s.status, 'status', ActivationStatus.activating),
-        isA<ActivationState>()
-            .having((s) => s.status, 'status', ActivationStatus.terminal)
-            .having((s) => s.errorCode, 'code', ApiErrorCode.noActiveCompany)
-            .having((s) => s.errorMessage, 'message',
-                contains('linked to a company')),
-      ],
-    );
-
-    blocTest<ActivationCubit, ActivationState>(
       'network error → error (retryable), falls through to e.message',
       build: () {
         when(() => repo.activate(any())).thenThrow(const ApiException(
@@ -307,40 +285,6 @@ void main() {
       },
     );
 
-    blocTest<ActivationCubit, ActivationState>(
-      'failed resume with no_active_company keeps the remembered key '
-      '(the key is still valid; only the company link is missing)',
-      build: () {
-        remembered = FakeRememberedActivationKeyStore('remembered-key');
-        when(() => repo.activate('remembered-key'))
-            .thenThrow(const ApiException(
-          code: ApiErrorCode.noActiveCompany,
-          statusCode: 403,
-          message: 'mock message from backend',
-        ));
-        return ActivationCubit(repo, remembered);
-      },
-      act: (c) async {
-        await c.loadRemembered();
-        await c.resume();
-      },
-      expect: () => [
-        isA<ActivationState>()
-            .having((s) => s.status, 'status', ActivationStatus.resume),
-        isA<ActivationState>()
-            .having((s) => s.status, 'status', ActivationStatus.activating),
-        isA<ActivationState>()
-            .having((s) => s.status, 'status', ActivationStatus.terminal)
-            .having((s) => s.errorCode, 'code', ApiErrorCode.noActiveCompany),
-      ],
-      verify: (_) {
-        // Unlike an invalid/already-bound key, no_active_company doesn't mean
-        // the key is bad — it becomes usable again once an admin links the
-        // company, so it must not be forgotten.
-        expect(remembered.value, 'remembered-key');
-        expect(remembered.clears, 0);
-      },
-    );
   });
 
   group('useDifferentKey', () {

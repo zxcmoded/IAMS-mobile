@@ -4,23 +4,23 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../auth/data/models/role.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
-import '../../data/models/enums.dart';
 import '../../data/models/scope.dart';
-import 'connection_scope_screen.dart';
 import 'scope_cubit.dart';
 
-/// F15 — Company / Tenant Selector. Shows the active company + parent/child
-/// indicator and the accessible connected companies.
-/// States: single-scope · multiple-accessible · no-connected-company.
-class CompanySelectorScreen extends StatelessWidget {
-  const CompanySelectorScreen({super.key});
+/// Home — the Main Screen after activation. Shows the caller's Company, role,
+/// and the Locations they may act within (`/me/scope`), plus entry points into
+/// Scanning and Inventory. There is no company/location switching: a user acts
+/// within their Company + full assigned-Location set at all times.
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ScopeCubit>(
       create: (_) => sl<ScopeCubit>()..load(),
-      child: const _CompanySelectorView(),
+      child: const _HomeView(),
     );
   }
 }
@@ -56,17 +56,15 @@ Future<void> _confirmForgetDevice(BuildContext context) async {
   }
 }
 
-class _CompanySelectorView extends StatelessWidget {
-  const _CompanySelectorView();
+class _HomeView extends StatelessWidget {
+  const _HomeView();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Companies'),
+        title: const Text('Home'),
         actions: [
-          // Interim entry points into F3/F4 until the F2 Home tab bar lands in
-          // Phase 2b.
           IconButton(
             tooltip: 'Scan',
             icon: const Icon(Icons.qr_code_scanner),
@@ -78,19 +76,18 @@ class _CompanySelectorView extends StatelessWidget {
             onPressed: () => context.push(AppRoutes.inventory),
           ),
           // Tap: sign out but keep this device remembered (one-tap resume on
-          // the Activation screen). Long-press: also forget the remembered
-          // key, for a shared/kiosk device being handed off. Forgetting is
+          // the Activation screen). Long-press: also forget the remembered key,
+          // for a shared/kiosk device being handed off. Forgetting is
           // destructive (it forces a full manual key re-entry later), so it
           // always goes through a confirmation dialog before it runs.
           //
           // Uses IconButton's own onLongPress (rather than wrapping it in a
           // separate GestureDetector) because IconButton also owns the
           // tooltip's internal LongPressGestureRecognizer — a sibling
-          // GestureDetector competes with that recognizer in the same
-          // gesture arena and can lose to it, silently swallowing the long
-          // press.
+          // GestureDetector competes with that recognizer in the same gesture
+          // arena and can lose to it, silently swallowing the long press.
           IconButton(
-            key: const Key('company_sign_out'),
+            key: const Key('home_sign_out'),
             tooltip: 'Sign out (long-press to also forget this device)',
             icon: const Icon(Icons.logout),
             onPressed: () => sl<AuthController>().logout(),
@@ -106,7 +103,7 @@ class _CompanySelectorView extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             case ScopeStatus.error:
               return _ErrorState(
-                message: state.errorMessage ?? 'Could not load your scope.',
+                message: state.errorMessage ?? 'Could not load your access.',
                 onRetry: () => context.read<ScopeCubit>().refresh(),
               );
             case ScopeStatus.loaded:
@@ -130,28 +127,37 @@ class _LoadedState extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Active company',
-              style: Theme.of(context).textTheme.labelLarge),
+          Text('Company', style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 8),
-          _ActiveCompanyCard(scope: scope),
+          _CompanyCard(scope: scope),
           const SizedBox(height: 24),
-          Text('Connected companies',
-              style: Theme.of(context).textTheme.labelLarge),
+          Row(
+            children: [
+              Text('Assigned locations',
+                  style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(width: 8),
+              if (scope.unrestrictedCompanyAccess)
+                Text(
+                  '(all locations)',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                ),
+            ],
+          ),
           const SizedBox(height: 8),
-          if (!scope.hasConnectedCompanies)
-            const _NoConnectedCompany()
+          if (!scope.hasAssignedLocations)
+            const _NoLocations()
           else
-            ...scope.connections.map(
-              (c) => _ConnectionTile(scope: scope, connection: c),
-            ),
+            ...scope.assignedLocations.map((l) => _LocationTile(location: l)),
         ],
       ),
     );
   }
 }
 
-class _ActiveCompanyCard extends StatelessWidget {
-  const _ActiveCompanyCard({required this.scope});
+class _CompanyCard extends StatelessWidget {
+  const _CompanyCard({required this.scope});
 
   final Scope scope;
 
@@ -164,96 +170,52 @@ class _ActiveCompanyCard extends StatelessWidget {
           backgroundColor: scheme.primaryContainer,
           child: Icon(Icons.business, color: scheme.onPrimaryContainer),
         ),
-        title: Text(scope.activeCompany.name),
-        subtitle: Text(
-          '${scope.activeTenant.kind.label} tenant · ${scope.activeTenant.name}'
-          '${scope.activeLocation != null ? '\n${scope.activeLocation!.name}' : ''}',
-        ),
-        isThreeLine: scope.activeLocation != null,
-        trailing: _TenantTypeBadge(kind: scope.activeTenant.kind),
+        title: Text(scope.company.name),
+        subtitle: Text(scope.user.displayName),
+        trailing: _RoleBadge(role: scope.role),
       ),
     );
   }
 }
 
-class _ConnectionTile extends StatelessWidget {
-  const _ConnectionTile({required this.scope, required this.connection});
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({required this.role});
 
-  final Scope scope;
-  final Connection connection;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final enabled = connection.grantsAccess;
-    return Card(
-      child: ListTile(
-        enabled: enabled,
-        leading: CircleAvatar(
-          backgroundColor:
-              enabled ? scheme.secondaryContainer : scheme.surfaceContainerHighest,
-          child: Text(
-            connection.connectionType.shortLabel.replaceAll(' ', ''),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: enabled ? scheme.onSecondaryContainer : scheme.outline,
-            ),
-          ),
-        ),
-        title: Text(connection.targetCompany.name),
-        subtitle: Text(
-          '${connection.connectionType.label}\n'
-          '${connection.bestPermission.label} · '
-          '${connection.scopes.length} area'
-          '${connection.scopes.length == 1 ? '' : 's'}'
-          '${connection.isEnabled ? '' : ' · Disabled'}',
-        ),
-        isThreeLine: true,
-        trailing: enabled
-            ? const Icon(Icons.chevron_right)
-            : Icon(Icons.block, color: scheme.error),
-        onTap: enabled
-            ? () => context.push(
-                  AppRoutes.connectionScope,
-                  extra: ConnectionScopeArgs(
-                    scope: scope,
-                    connection: connection,
-                  ),
-                )
-            : null,
-      ),
-    );
-  }
-}
-
-class _TenantTypeBadge extends StatelessWidget {
-  const _TenantTypeBadge({required this.kind});
-
-  final TenantType kind;
+  final Role role;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isParent = kind == TenantType.parent;
     return Chip(
       visualDensity: VisualDensity.compact,
-      backgroundColor:
-          isParent ? scheme.primaryContainer : scheme.tertiaryContainer,
+      backgroundColor: scheme.secondaryContainer,
       label: Text(
-        kind.label,
-        style: TextStyle(
-          color: isParent
-              ? scheme.onPrimaryContainer
-              : scheme.onTertiaryContainer,
-        ),
+        role.label,
+        style: TextStyle(color: scheme.onSecondaryContainer),
       ),
     );
   }
 }
 
-class _NoConnectedCompany extends StatelessWidget {
-  const _NoConnectedCompany();
+class _LocationTile extends StatelessWidget {
+  const _LocationTile({required this.location});
+
+  final LocationRef location;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: ListTile(
+        leading: Icon(Icons.location_on_outlined, color: scheme.primary),
+        title: Text(location.name),
+      ),
+    );
+  }
+}
+
+class _NoLocations extends StatelessWidget {
+  const _NoLocations();
 
   @override
   Widget build(BuildContext context) {
@@ -263,16 +225,14 @@ class _NoConnectedCompany extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Icon(Icons.link_off, size: 40, color: scheme.outline),
+            Icon(Icons.wrong_location_outlined, size: 40, color: scheme.outline),
             const SizedBox(height: 12),
-            Text(
-              'No connected companies',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('No locations assigned',
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
-              'You only have access to your own company. Cross-tenant '
-              'connections are configured by an administrator.',
+              'You have not been assigned to any locations yet. Contact your '
+              'administrator.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

@@ -41,7 +41,7 @@ void main() {
     expect(find.byKey(const Key('scan_permission_denied')), findsOneWidget);
   });
 
-  testWidgets('blocked (cross-tenant) never reads as "not found"',
+  testWidgets('blocked (out-of-scope) never reads as "not found"',
       (tester) async {
     await pump(
       tester,

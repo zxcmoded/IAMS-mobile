@@ -58,6 +58,7 @@ class _InventoryListViewState extends State<_InventoryListView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.green,
         title: const Text('Inventory'),
         actions: [
           IconButton(

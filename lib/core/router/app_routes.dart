@@ -7,9 +7,7 @@ class AppRoutes {
   static const activation = '/activation';
   static const sessionExpired = '/session-expired';
 
-  static const companies = '/companies';
-  static const connectionScope = '/companies/connection';
-  static const crossTenantAccess = '/access';
+  static const home = '/home';
   static const accessDenied = '/access/denied';
 
   // F3 — Scanning

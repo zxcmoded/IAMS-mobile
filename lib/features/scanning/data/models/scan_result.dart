@@ -5,10 +5,11 @@ import 'package:equatable/equatable.dart';
 /// Blocked`). [unknown] is a forward-compat catch-all so a value the server
 /// adds later can never crash the routing switch.
 ///
-/// [blocked] (BR-003, cross-tenant) is deliberately distinct from [noMatch]:
+/// [blocked] (BR-003, out-of-scope) is deliberately distinct from [noMatch]:
 /// the code matches a real entity that exists **outside** the caller's
-/// reachable set. It must never be presented as "not found" — the entity
-/// exists, it just isn't yours, and its id is never leaked.
+/// Company/assigned-Location scope. It must never be presented as "not
+/// found" — the entity exists, it just isn't yours, and its id is never
+/// leaked.
 ///
 /// [asset] is reserved for F5 (Fixed Assets) and is **never emitted by the
 /// current server**; the client tolerates it now so F5 shipping is not a

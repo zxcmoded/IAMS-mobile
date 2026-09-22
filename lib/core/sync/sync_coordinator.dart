@@ -10,7 +10,7 @@ import '../network/connectivity_checker.dart';
 /// never stands between authentication and the Main Screen.
 ///
 /// This replaces the old blocking `/sync` route + `HierarchySyncScreen` gate.
-/// The rule (see the feature spec): navigation to `/companies` must never be
+/// The rule (see the feature spec): navigation to `/home` must never be
 /// blocked or delayed by sync, in either connectivity state.
 ///
 /// * **Online** → fire-and-forget both the master-data hierarchy sync and the

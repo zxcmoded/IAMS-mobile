@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "IAMS Mobile (iOS Simulator)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "apple_ios_simulator",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "IAMS Mobile (Android Emulator)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "emulator-5554",
+      "flutterMode": "debug"
+    }
+  ]
+}

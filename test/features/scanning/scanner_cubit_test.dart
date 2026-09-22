@@ -51,7 +51,7 @@ void main() {
       expect(cubit.state.resolving, isFalse);
     });
 
-    test('blocked (cross-tenant) is distinct from no-match', () async {
+    test('blocked (out-of-scope) is distinct from no-match', () async {
       when(() => repo.resolve('X')).thenAnswer((_) async => const ScanResult(
           resolvedType: ResolvedType.blocked, scanEventId: 'e'));
       await cubit.onScanned('X');

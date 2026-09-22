@@ -12,7 +12,6 @@ import 'package:equatable/equatable.dart';
 class InventoryItemSync extends Equatable {
   const InventoryItemSync({
     required this.id,
-    required this.tenantId,
     required this.companyId,
     required this.sku,
     required this.name,
@@ -26,7 +25,6 @@ class InventoryItemSync extends Equatable {
   });
 
   final String id;
-  final String tenantId;
   final String companyId;
   final String sku;
   final String name;
@@ -41,7 +39,6 @@ class InventoryItemSync extends Equatable {
   factory InventoryItemSync.fromJson(Map<String, dynamic> json) =>
       InventoryItemSync(
         id: json['id'] as String,
-        tenantId: json['tenantId'] as String,
         companyId: json['companyId'] as String,
         sku: json['sku'] as String,
         name: json['name'] as String,
@@ -58,7 +55,6 @@ class InventoryItemSync extends Equatable {
 
   Map<String, Object?> toRow() => {
         'id': id,
-        'tenant_id': tenantId,
         'company_id': companyId,
         'sku': sku,
         'barcode': barcode,
@@ -74,7 +70,6 @@ class InventoryItemSync extends Equatable {
   @override
   List<Object?> get props => [
         id,
-        tenantId,
         companyId,
         sku,
         name,

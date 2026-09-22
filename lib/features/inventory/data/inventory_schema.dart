@@ -64,7 +64,6 @@ const List<String> inventoryMasterSchema = [
   '''
   CREATE TABLE inventory_item (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
     company_id TEXT NOT NULL,
     sku TEXT NOT NULL,
     barcode TEXT,

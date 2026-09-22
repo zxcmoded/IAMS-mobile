@@ -25,10 +25,6 @@ class ApiErrorCode {
   static const String activationKeyAlreadyBound =
       'activation_key_already_bound';
 
-  /// 403 from `POST /api/auth/activate`: the key is valid and this device is
-  /// now bound, but the user has no company membership to sign in to.
-  /// Terminal — retrying activation won't help without admin intervention.
-  static const String noActiveCompany = 'no_active_company';
   static const String accessDenied = 'access_denied';
   static const String notFound = 'not_found';
 

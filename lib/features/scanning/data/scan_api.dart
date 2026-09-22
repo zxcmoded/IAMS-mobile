@@ -7,8 +7,8 @@ import 'models/scan_result.dart';
 /// *authenticated* Dio so the Bearer token is attached and the shared
 /// `ErrorInterceptor` normalizes any response ≥ 300 into a typed
 /// `ApiException`; [unwrapApiErrors] then re-throws that mapped exception
-/// itself instead of the [DioException] Dio wraps it in. Tenant scope is
-/// resolved server-side off the JWT — never sent by the client.
+/// itself instead of the [DioException] Dio wraps it in. Company/Location
+/// scope is resolved server-side off the JWT — never sent by the client.
 class ScanApi {
   ScanApi(this._dio);
 

@@ -133,7 +133,6 @@ InventoryItemSync itemSync(
 }) =>
     InventoryItemSync(
       id: id,
-      tenantId: 'tn1',
       companyId: companyId,
       sku: sku,
       name: name,
@@ -160,7 +159,6 @@ StockLevelSync stockLevelSync(
       warehouseId: 'w1',
       locationId: 'l1',
       companyId: companyId,
-      tenantId: 'tn1',
       quantityOnHand: quantityOnHand,
       version: version,
       createdAtUtc: _invT0,
@@ -256,7 +254,6 @@ class FakeInventoryLocalDataSource implements InventoryLocalDataSource {
       totalQuantityOnHand: total,
       stockByBin: bins,
       movements: const [],
-      tenantId: row['tenant_id'] as String?,
       companyId: row['company_id'] as String?,
       barcode: row['barcode'] as String?,
       description: row['description'] as String?,

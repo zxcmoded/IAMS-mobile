@@ -12,7 +12,7 @@ import 'scanner_cubit.dart';
 /// and code capture happens through the always-available manual-entry field —
 /// the same code path a real detector callback would drive (`cubit.onScanned`).
 /// All five states are represented: scanning · permission-denied · no-match ·
-/// resolved · cross-tenant blocked.
+/// resolved · out-of-scope blocked.
 class ScannerScreen extends StatelessWidget {
   const ScannerScreen({super.key});
 

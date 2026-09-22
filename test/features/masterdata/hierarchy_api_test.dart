@@ -92,7 +92,6 @@ void main() {
                     'isActive': true,
                     'createdAtUtc': '2026-01-01T00:00:00+00:00',
                     'updatedAtUtc': null,
-                    'tenantId': 'tn1',
                   },
                 ],
                 'nextCursor': 'cursor-1',
@@ -103,7 +102,6 @@ void main() {
 
       expect(page.items, hasLength(1));
       expect(page.items.single.id, 'co1');
-      expect(page.items.single.tenantId, 'tn1');
       expect(page.nextCursor, 'cursor-1');
       expect(page.hasMore, isTrue);
     });
@@ -132,7 +130,6 @@ void main() {
                     'isActive': false,
                     'createdAtUtc': '2026-01-01T00:00:00+00:00',
                     'updatedAtUtc': '2026-02-01T00:00:00+00:00',
-                    'tenantId': 'tn1',
                     'rackId': 'r1',
                     'warehouseId': 'w1',
                     'locationId': 'l1',

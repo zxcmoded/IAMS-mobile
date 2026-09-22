@@ -44,9 +44,10 @@ class InventorySyncProgress {
 /// unit-testable. Structurally a twin of `HierarchySyncService`: incremental,
 /// resumable, and idempotent, with the same reachability-diff mitigation.
 ///
-/// **Reachability gap (same shape as the hierarchy feeds'):** enabling a
-/// `CompanyConnection` does not advance the newly-reachable company's inventory
-/// rows' `SyncCursorUtc`, so an incremental poll alone would never surface that
+/// **Reachability gap (same shape as the hierarchy feeds'):** a company newly
+/// visible to the caller (e.g. a SuperAdmin after a company is created
+/// system-wide) does not retroactively advance that company's inventory rows'
+/// `SyncCursorUtc`, so an incremental poll alone would never surface that
 /// company's inventory. So every pass does a cheap full Company pull, diffs the
 /// reachable-company set against its own persisted snapshot, and — on any
 /// change — forces a full re-pull (`cursor = null`) of *both* inventory feeds.

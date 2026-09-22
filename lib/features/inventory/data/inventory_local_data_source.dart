@@ -119,7 +119,6 @@ class InventoryLocalDataSource {
       totalQuantityOnHand: total,
       stockByBin: bins,
       movements: const [],
-      tenantId: item['tenant_id'] as String?,
       companyId: item['company_id'] as String?,
       barcode: item['barcode'] as String?,
       description: item['description'] as String?,

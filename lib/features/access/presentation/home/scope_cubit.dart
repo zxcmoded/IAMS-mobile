@@ -5,12 +5,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../data/models/scope.dart';
-import '../../data/tenant_repository.dart';
+import '../../data/scope_repository.dart';
 
 enum ScopeStatus { initial, loading, loaded, error }
 
-/// State for scope-driven screens (Company/Tenant Selector, Connection Scope).
-/// Handles the explicit loading / error / empty (no-connected-company) states.
+/// State for the Home screen — the caller's Company, role, and assigned
+/// Locations from `GET /me/scope`. Handles the explicit loading / error states.
 class ScopeState extends Equatable {
   const ScopeState({
     this.status = ScopeStatus.initial,
@@ -27,10 +27,6 @@ class ScopeState extends Equatable {
   bool get isLoading =>
       status == ScopeStatus.loading || status == ScopeStatus.initial;
 
-  /// Empty state for the selector: signed in but no connected companies.
-  bool get hasNoConnectedCompany =>
-      status == ScopeStatus.loaded && scope != null && !scope!.hasConnectedCompanies;
-
   @override
   List<Object?> get props => [status, scope, errorCode, errorMessage];
 }
@@ -38,12 +34,12 @@ class ScopeState extends Equatable {
 class ScopeCubit extends Cubit<ScopeState> {
   ScopeCubit(this._repository) : super(const ScopeState());
 
-  /// Shown when [loadScope] fails with a connectivity error. Scope has no
-  /// offline cache, so this is a dead end until the device reconnects.
+  /// Shown when [load] fails with a connectivity error. Scope has no offline
+  /// cache, so this is a dead end until the device reconnects.
   static const String _offlineMessage =
-      "You're offline. Connect to the internet to view your companies.";
+      "You're offline. Connect to the internet to view your access.";
 
-  final TenantRepository _repository;
+  final ScopeRepository _repository;
 
   Future<void> load() async {
     emit(const ScopeState(status: ScopeStatus.loading));
@@ -56,22 +52,18 @@ class ScopeCubit extends Cubit<ScopeState> {
         errorCode: e.code,
         // A plain connectivity failure is surfaced with a distinct, explicit
         // "you're offline" message rather than the generic server-supplied
-        // text. Scope is online-only (no local cache), so the user genuinely
-        // cannot pick/switch companies while offline — the copy makes that
-        // clear instead of reading as an ambiguous failure. Non-network
+        // text. Scope is online-only (no local cache). Non-network
         // ApiExceptions keep their own [message].
         errorMessage: e.isNetwork ? _offlineMessage : e.message,
       ));
     } catch (e, st) {
       // Catch-all for non-[ApiException] failures — e.g. a PlatformException
-      // from secure storage, a TypeError/FormatException parsing an
-      // unexpected response, or (historically — see [unwrapApiErrors]) a raw
-      // [DioException] escaping the data layer. Without this the Future
-      // error would go unhandled and the cubit would stay in
-      // [ScopeStatus.loading] forever (spinner spins, no error shown).
-      // Surface a generic message rather than leaking raw exception text to
-      // the UI, but log the real exception+stack trace so a swallowed
-      // failure is never invisible to diagnostics again.
+      // from secure storage, a TypeError/FormatException parsing an unexpected
+      // response, or a raw [DioException] escaping the data layer. Without this
+      // the Future error would go unhandled and the cubit would stay in
+      // [ScopeStatus.loading] forever (spinner spins, no error shown). Surface
+      // a generic message rather than leaking raw exception text to the UI, but
+      // log the real exception+stack so a swallowed failure is never invisible.
       developer.log(
         'ScopeCubit.load failed with a non-ApiException error',
         name: 'ScopeCubit',

@@ -13,7 +13,6 @@ final _t0 = DateTime.utc(2026, 1, 1);
 Company company(String id, {String name = 'Co', bool isActive = true}) =>
     Company(
       id: id,
-      tenantId: 'tn1',
       name: name,
       isActive: isActive,
       createdAtUtc: _t0,
@@ -25,7 +24,6 @@ Location location(String id,
         bool isActive = true}) =>
     Location(
       id: id,
-      tenantId: 'tn1',
       companyId: companyId,
       name: name,
       isActive: isActive,
@@ -39,7 +37,6 @@ Warehouse warehouse(String id,
         bool isActive = true}) =>
     Warehouse(
       id: id,
-      tenantId: 'tn1',
       locationId: locationId,
       companyId: companyId,
       name: name,
@@ -55,7 +52,6 @@ Rack rack(String id,
         bool isActive = true}) =>
     Rack(
       id: id,
-      tenantId: 'tn1',
       warehouseId: warehouseId,
       locationId: locationId,
       companyId: companyId,
@@ -73,7 +69,6 @@ Bin bin(String id,
         bool isActive = true}) =>
     Bin(
       id: id,
-      tenantId: 'tn1',
       rackId: rackId,
       warehouseId: warehouseId,
       locationId: locationId,

@@ -104,7 +104,6 @@ class InventoryItemDetail extends Equatable {
     required this.totalQuantityOnHand,
     required this.stockByBin,
     required this.movements,
-    this.tenantId,
     this.companyId,
     this.barcode,
     this.description,
@@ -119,7 +118,6 @@ class InventoryItemDetail extends Equatable {
   final double totalQuantityOnHand;
   final List<StockByBin> stockByBin;
   final List<Movement> movements;
-  final String? tenantId;
   final String? companyId;
   final String? barcode;
   final String? description;
@@ -140,7 +138,6 @@ class InventoryItemDetail extends Equatable {
         movements: (json['movements'] as List<dynamic>? ?? const [])
             .map((e) => Movement.fromJson(e as Map<String, dynamic>))
             .toList(growable: false),
-        tenantId: json['tenantId'] as String?,
         companyId: json['companyId'] as String?,
         barcode: json['barcode'] as String?,
         description: json['description'] as String?,
@@ -157,7 +154,6 @@ class InventoryItemDetail extends Equatable {
         totalQuantityOnHand,
         stockByBin,
         movements,
-        tenantId,
         companyId,
         barcode,
         description,

@@ -5,7 +5,7 @@ import 'package:equatable/equatable.dart';
 /// local `stock_version_cache` table.
 ///
 /// The feed carries full denormalized ancestry (bin → rack → warehouse →
-/// location → company → tenant), but the local cache only needs
+/// location → company), but the local cache only needs
 /// `(inventoryItemId, binId) → quantityOnHand, version` — the same shape the
 /// outbox mutation flow already reconciles into and stamps `base*StockVersion`
 /// from. So [toCacheRow] projects onto exactly those columns; the ancestry ids
@@ -27,7 +27,6 @@ class StockLevelSync extends Equatable {
     required this.warehouseId,
     required this.locationId,
     required this.companyId,
-    required this.tenantId,
     required this.quantityOnHand,
     required this.version,
     required this.createdAtUtc,
@@ -41,7 +40,6 @@ class StockLevelSync extends Equatable {
   final String warehouseId;
   final String locationId;
   final String companyId;
-  final String tenantId;
   final double quantityOnHand;
   final int version;
   final DateTime createdAtUtc;
@@ -55,7 +53,6 @@ class StockLevelSync extends Equatable {
         warehouseId: json['warehouseId'] as String,
         locationId: json['locationId'] as String,
         companyId: json['companyId'] as String,
-        tenantId: json['tenantId'] as String,
         quantityOnHand: (json['quantityOnHand'] as num?)?.toDouble() ?? 0,
         // `version` is a long server-side; Dart ints are 64-bit so `as int` is
         // safe. Tolerate a JSON number just in case.
@@ -86,7 +83,6 @@ class StockLevelSync extends Equatable {
         warehouseId,
         locationId,
         companyId,
-        tenantId,
         quantityOnHand,
         version,
         createdAtUtc,

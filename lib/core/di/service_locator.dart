@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 
+import '../../features/access/data/scope_api.dart';
+import '../../features/access/data/scope_repository.dart';
+import '../../features/access/presentation/home/scope_cubit.dart';
 import '../../features/auth/data/auth_api.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/activation/activation_cubit.dart';
@@ -24,10 +27,6 @@ import '../../features/masterdata/data/hierarchy_sync_service.dart';
 import '../../features/scanning/data/scan_api.dart';
 import '../../features/scanning/data/scan_repository.dart';
 import '../../features/scanning/presentation/scanner/scanner_cubit.dart';
-import '../../features/tenant/data/tenant_api.dart';
-import '../../features/tenant/data/tenant_repository.dart';
-import '../../features/tenant/presentation/access/access_cubit.dart';
-import '../../features/tenant/presentation/scope/scope_cubit.dart';
 import '../network/auth_interceptor.dart';
 import '../network/connectivity_checker.dart';
 import '../network/dio_factory.dart';
@@ -76,11 +75,11 @@ Future<void> configureDependencies() async {
   );
   sl.registerLazySingleton<Dio>(() => authDio, instanceName: 'authenticated');
 
-  // Tenant data.
-  sl.registerLazySingleton<TenantApi>(
-      () => TenantApi(sl<Dio>(instanceName: 'authenticated')));
-  sl.registerLazySingleton<TenantRepository>(
-      () => TenantRepository(sl<TenantApi>()));
+  // Access / scope data (`GET /me/scope`).
+  sl.registerLazySingleton<ScopeApi>(
+      () => ScopeApi(sl<Dio>(instanceName: 'authenticated')));
+  sl.registerLazySingleton<ScopeRepository>(
+      () => ScopeRepository(sl<ScopeApi>()));
 
   // Master-data offline store + sync.
   sl.registerLazySingleton<AppDatabase>(() => AppDatabase());
@@ -140,8 +139,7 @@ Future<void> configureDependencies() async {
         sl<AuthRepository>(),
         sl<RememberedActivationKeyStore>(),
       ));
-  sl.registerFactory<ScopeCubit>(() => ScopeCubit(sl<TenantRepository>()));
-  sl.registerFactory<AccessCubit>(() => AccessCubit(sl<TenantRepository>()));
+  sl.registerFactory<ScopeCubit>(() => ScopeCubit(sl<ScopeRepository>()));
   sl.registerFactory<ScannerCubit>(() => ScannerCubit(sl<ScanRepository>()));
   sl.registerFactory<InventoryListCubit>(
       () => InventoryListCubit(sl<InventoryRepository>()));

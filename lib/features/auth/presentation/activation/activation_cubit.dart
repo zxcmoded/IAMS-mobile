@@ -15,10 +15,9 @@ enum ActivationStatus { idle, resume, activating, error, terminal, activated }
 /// remembered Activation Key, so the screen offers a one-tap continue instead
 /// of the blank entry form. The user can still fall back to manual entry.
 ///
-/// [ActivationStatus.terminal] covers the two 403s that can't be fixed by
-/// retrying the same key (`activation_key_already_bound`,
-/// `no_active_company`) — the dedicated terminal UI tells the user to
-/// contact an administrator and does not auto-retry.
+/// [ActivationStatus.terminal] covers the 403 that can't be fixed by retrying
+/// the same key (`activation_key_already_bound`) — the dedicated terminal UI
+/// tells the user to contact an administrator and does not auto-retry.
 class ActivationState extends Equatable {
   const ActivationState({
     this.status = ActivationStatus.idle,
@@ -141,19 +140,15 @@ class ActivationCubit extends Cubit<ActivationState> {
       // A remembered key that no longer works (deactivated account, admin
       // reset that unbound the device, etc.) must not strand the user on a
       // broken one-tap resume: forget it so they fall back to manual entry
-      // with the mapped error explaining why. `no_active_company` is the one
-      // exception — it means the account isn't linked to a company yet, not
-      // that the key itself is invalid, so the key is still good and should
-      // be kept for when an admin fixes the company link.
-      if (isResume && e.code != ApiErrorCode.noActiveCompany) {
+      // with the mapped error explaining why.
+      if (isResume) {
         _rememberedKey = null;
         await _rememberedKeyStore.clear();
       }
-      // Terminal outcomes: neither can be fixed by resubmitting the same
-      // key, so the UI must not auto-retry — only a manual "try again" tap
-      // (which just resets this cubit) re-opens the form.
-      final isTerminal = e.code == ApiErrorCode.activationKeyAlreadyBound ||
-          e.code == ApiErrorCode.noActiveCompany;
+      // Terminal outcome: can't be fixed by resubmitting the same key, so the
+      // UI must not auto-retry — only a manual "try again" tap (which just
+      // resets this cubit) re-opens the form.
+      final isTerminal = e.code == ApiErrorCode.activationKeyAlreadyBound;
       emit(ActivationState(
         status: isTerminal ? ActivationStatus.terminal : ActivationStatus.error,
         errorCode: e.code,
@@ -192,9 +187,6 @@ class ActivationCubit extends Cubit<ActivationState> {
       case ApiErrorCode.activationKeyAlreadyBound:
         return 'This activation key is already registered to another '
             'device. Please contact your administrator to reset it.';
-      case ApiErrorCode.noActiveCompany:
-        return 'Your account isn\'t linked to a company yet. Contact your '
-            'administrator.';
       case ApiErrorCode.network:
         return e.message;
       default:

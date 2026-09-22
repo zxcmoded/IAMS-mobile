@@ -4,7 +4,6 @@ import 'package:equatable/equatable.dart';
 class Location extends Equatable {
   const Location({
     required this.id,
-    required this.tenantId,
     required this.companyId,
     required this.name,
     required this.isActive,
@@ -14,7 +13,6 @@ class Location extends Equatable {
   });
 
   final String id;
-  final String tenantId;
   final String companyId;
   final String name;
   final bool isActive;
@@ -24,7 +22,6 @@ class Location extends Equatable {
 
   factory Location.fromJson(Map<String, dynamic> json) => Location(
         id: json['id'] as String,
-        tenantId: json['tenantId'] as String,
         companyId: json['companyId'] as String,
         name: json['name'] as String,
         isActive: json['isActive'] as bool,
@@ -37,7 +34,6 @@ class Location extends Equatable {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'tenantId': tenantId,
         'companyId': companyId,
         'name': name,
         'isActive': isActive,
@@ -48,7 +44,6 @@ class Location extends Equatable {
 
   factory Location.fromRow(Map<String, Object?> row) => Location(
         id: row['id'] as String,
-        tenantId: row['tenant_id'] as String,
         companyId: row['company_id'] as String,
         name: row['name'] as String,
         isActive: (row['is_active'] as int) != 0,
@@ -61,7 +56,6 @@ class Location extends Equatable {
 
   Map<String, Object?> toRow() => {
         'id': id,
-        'tenant_id': tenantId,
         'company_id': companyId,
         'name': name,
         'region': region,
@@ -73,7 +67,6 @@ class Location extends Equatable {
   @override
   List<Object?> get props => [
         id,
-        tenantId,
         companyId,
         name,
         isActive,
