@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/di/service_locator.dart';
 import 'core/router/app_router.dart';
+import 'features/access/presentation/controller/selected_location_controller.dart';
 import 'features/auth/presentation/controller/auth_controller.dart';
 import 'features/auth/presentation/controller/auth_state.dart';
 
@@ -19,7 +20,9 @@ class IamsApp extends StatefulWidget {
 
 class _IamsAppState extends State<IamsApp> {
   late final AuthController _auth = sl<AuthController>();
-  late final GoRouter _router = createRouter(_auth);
+  late final SelectedLocationController _selectedLocation =
+      sl<SelectedLocationController>();
+  late final GoRouter _router = createRouter(_auth, _selectedLocation);
 
   @override
   Widget build(BuildContext context) {

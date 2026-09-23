@@ -43,6 +43,15 @@ dependencies:
   sqflite: ^2.4.0
   path: ^1.9.0
   connectivity_plus: ^7.3.1
+  # Audit feature (F5) — fully-offline file import/export. All pure-Dart or
+  # classic-plugin packages (no `objective_c` native-assets build hook), so they
+  # don't trip the broken-Xcode `flutter test` issue the path_provider_foundation
+  # override below works around.
+  csv: ^6.0.0 # CSV parse/write (pure Dart)
+  excel: ^4.0.6 # XLSX parse/write (pure Dart)
+  file_picker: ^10.3.10 # pick a CSV/XLSX from device storage to import
+  share_plus: ^10.1.4 # save/share an exported/template file
+  path_provider: ^2.1.5 # temp dir to stage export files before sharing
 
 # NOTE (toolchain workaround): path_provider_foundation >= 2.5.0 migrated to the
 # `objective_c` native-assets build hook, which shells out to `xcrun` under the

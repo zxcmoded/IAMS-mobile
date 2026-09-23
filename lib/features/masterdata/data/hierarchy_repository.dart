@@ -19,6 +19,9 @@ class HierarchyRepository {
   Future<List<Location>> getLocations(String companyId) =>
       _local.getLocations(companyId: companyId);
 
+  Future<Location?> getLocationById(String id) =>
+      _local.getLocationById(id);
+
   Future<List<Warehouse>> getWarehouses(String locationId) =>
       _local.getWarehouses(locationId: locationId);
 

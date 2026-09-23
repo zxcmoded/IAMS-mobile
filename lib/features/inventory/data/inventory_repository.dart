@@ -1,9 +1,35 @@
+import 'package:equatable/equatable.dart';
+
 import 'models/inventory_enums.dart';
 import 'models/inventory_item.dart';
 import 'models/inventory_item_detail.dart';
 import 'models/outbox_entry.dart';
 import 'inventory_local_data_source.dart';
 import 'outbox_local_data_source.dart';
+
+/// The dashboard's local-only "Inventory Summary" — total active SKUs and the
+/// synced/unsynced split, all derived from local SQLite (no API call).
+class InventorySummary extends Equatable {
+  const InventorySummary({
+    required this.totalSkus,
+    required this.syncedCount,
+    required this.unsyncedCount,
+  });
+
+  /// Count of active `inventory_item` rows.
+  final int totalSkus;
+
+  /// Items with **no** pending/failed outbox mutation (`totalSkus - unsynced`,
+  /// floored at 0).
+  final int syncedCount;
+
+  /// Items with at least one pending/failed outbox mutation — i.e. changes not
+  /// yet accepted by the server.
+  final int unsyncedCount;
+
+  @override
+  List<Object?> get props => [totalSkus, syncedCount, unsyncedCount];
+}
 
 /// The default inclusive upper bound for the `low_stock` filter, matching the
 /// backend's `InventoryDefaults.DefaultLowStockThreshold` (10) so the offline
@@ -67,11 +93,37 @@ class InventoryRepository {
     );
   }
 
+  /// The dashboard's "Inventory Summary" — computed entirely from local SQLite.
+  /// "Unsynced" is the number of distinct items carrying a `pending`/`failed`
+  /// outbox row; the rest of the active SKUs are "synced". The subtraction is
+  /// floored at 0 so a stray outbox row for an item no longer in the active
+  /// cache can never produce a negative synced count.
+  Future<InventorySummary> loadSummary() async {
+    final total = await _local.countActiveItems();
+    final unsyncedIds = await _outbox.itemIdsWithStatus(
+      const [OutboxStatus.pending, OutboxStatus.failed],
+    );
+    final unsynced = unsyncedIds.length;
+    final synced = total - unsynced;
+    return InventorySummary(
+      totalSkus: total,
+      syncedCount: synced < 0 ? 0 : synced,
+      unsyncedCount: unsynced,
+    );
+  }
+
   /// The item detail built from local tables (`null` = not in the local cache,
   /// i.e. not in the accessible/synced scope). Movement history is always empty
   /// locally (`InventoryTransactions` sync is out of scope).
   Future<InventoryItemDetail?> getItemDetail(String id) =>
       _local.getItemById(id);
+
+  /// Resolves a scanned/entered SKU or barcode to its item using only the local
+  /// `inventory_item` cache (no API). `null` = the code matches no known item
+  /// (an invalid SKU). Used by the offline Create-Inventory flow to validate a
+  /// SKU before adding it to a record.
+  Future<InventoryItem?> findItemByCode(String code) =>
+      _local.findItemByCode(code);
 
   // ---- Pending overlay ------------------------------------------------------
 

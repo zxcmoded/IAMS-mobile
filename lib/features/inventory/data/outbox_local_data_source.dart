@@ -118,6 +118,22 @@ class OutboxLocalDataSource {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
+  /// The set of distinct inventory item ids that have at least one outbox row in
+  /// any of [statuses] — powers the dashboard's "Sync Status" split (an item
+  /// with a `pending`/`failed` row counts as offline/unsynced). `DISTINCT` so
+  /// several queued mutations on one item collapse to a single unsynced item.
+  Future<Set<String>> itemIdsWithStatus(List<OutboxStatus> statuses) async {
+    if (statuses.isEmpty) return <String>{};
+    final db = await _db.instance;
+    final placeholders = List.filled(statuses.length, '?').join(',');
+    final rows = await db.rawQuery(
+      'SELECT DISTINCT inventory_item_id FROM $_outbox '
+      'WHERE status IN ($placeholders)',
+      statuses.map((s) => s.wire).toList(),
+    );
+    return rows.map((r) => r['inventory_item_id'] as String).toSet();
+  }
+
   // ---- Stock-version cache --------------------------------------------------
 
   Future<CachedStockLevel?> getStockLevel(

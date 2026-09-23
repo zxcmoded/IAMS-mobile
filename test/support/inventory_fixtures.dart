@@ -1,4 +1,6 @@
 import 'package:iams_mobile/features/inventory/data/inventory_local_data_source.dart';
+import 'package:iams_mobile/features/inventory/data/inventory_record_local_data_source.dart';
+import 'package:iams_mobile/features/inventory/data/models/inventory_record.dart';
 import 'package:iams_mobile/core/storage/device_id_provider.dart';
 import 'package:iams_mobile/features/inventory/data/models/cached_stock_level.dart';
 import 'package:iams_mobile/features/inventory/data/models/inventory_enums.dart';
@@ -77,6 +79,13 @@ class FakeOutboxLocalDataSource implements OutboxLocalDataSource {
   @override
   Future<int> countByStatus(List<OutboxStatus> statuses) async =>
       _outbox.values.where((e) => statuses.contains(e.status)).length;
+
+  @override
+  Future<Set<String>> itemIdsWithStatus(List<OutboxStatus> statuses) async =>
+      _outbox.values
+          .where((e) => statuses.contains(e.status))
+          .map((e) => e.inventoryItemId)
+          .toSet();
 
   // ---- Stock cache ----------------------------------------------------------
 
@@ -196,6 +205,10 @@ class FakeInventoryLocalDataSource implements InventoryLocalDataSource {
 
   int stockCount() => _stock.length;
 
+  @override
+  Future<int> countActiveItems() async =>
+      _items.values.where((r) => (r['is_active'] as int) != 0).length;
+
   SyncMetadata? metaOf(String entity) => _meta[entity];
 
   // ---- Read path ------------------------------------------------------------
@@ -230,6 +243,37 @@ class FakeInventoryLocalDataSource implements InventoryLocalDataSource {
         category: row['category'] as String?,
       );
     }).toList(growable: false);
+  }
+
+  @override
+  Future<InventoryItem?> findItemByCode(String code) async {
+    final term = code.trim().toLowerCase();
+    if (term.isEmpty) return null;
+    // Barcode match takes precedence over sku, matching the real SQL ordering.
+    Map<String, Object?>? barcodeHit;
+    Map<String, Object?>? skuHit;
+    for (final row in _items.values) {
+      final barcode = (row['barcode'] as String?)?.toLowerCase();
+      final sku = (row['sku'] as String).toLowerCase();
+      if (barcode != null && barcode == term) {
+        barcodeHit = row;
+        break;
+      }
+      if (sku == term) skuHit ??= row;
+    }
+    final row = barcodeHit ?? skuHit;
+    if (row == null) return null;
+    final id = row['id'] as String;
+    return InventoryItem(
+      id: id,
+      sku: row['sku'] as String,
+      name: row['name'] as String,
+      isActive: (row['is_active'] as int) != 0,
+      totalQuantityOnHand: _totalFor(id),
+      barcode: row['barcode'] as String?,
+      unitOfMeasure: row['unit_of_measure'] as String?,
+      category: row['category'] as String?,
+    );
   }
 
   @override
@@ -305,5 +349,38 @@ class FakeInventoryLocalDataSource implements InventoryLocalDataSource {
   Future<void> replaceReachableSnapshot(Set<String> companyIds) async {
     _snapshot = {...companyIds};
     reachableReplacements++;
+  }
+}
+
+/// In-memory [InventoryRecordLocalDataSource] for the offline-first
+/// Create-Inventory flow — id-keyed record store with eager lines, newest-first
+/// ordering, and line sort by sku (mirroring the real SQLite gateway). No
+/// platform channel / real DB needed.
+class FakeInventoryRecordLocalDataSource
+    implements InventoryRecordLocalDataSource {
+  final List<InventoryRecord> _records = [];
+
+  /// The raw saved records in insertion order, for assertions.
+  List<InventoryRecord> get saved => List.unmodifiable(_records);
+
+  @override
+  Future<void> insertRecord(InventoryRecord record) async {
+    _records.removeWhere((r) => r.id == record.id);
+    _records.add(record);
+  }
+
+  @override
+  Future<List<InventoryRecord>> getRecords() async {
+    final sorted = [..._records]
+      ..sort((a, b) => b.createdAtUtc.compareTo(a.createdAtUtc));
+    return sorted;
+  }
+
+  @override
+  Future<InventoryRecord?> getRecordById(String id) async {
+    for (final r in _records) {
+      if (r.id == id) return r;
+    }
+    return null;
   }
 }

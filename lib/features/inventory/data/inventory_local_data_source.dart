@@ -78,6 +78,33 @@ class InventoryLocalDataSource {
         category: row['category'] as String?,
       );
 
+  /// Resolves a scanned/entered code to its item, matching `barcode` **or**
+  /// `sku` exactly (case-insensitive) — the offline SKU-validation lookup for
+  /// the Create-Inventory flow. Barcode matches take precedence over sku so a
+  /// scan of a barcode that happens to collide with another item's sku resolves
+  /// to the barcode owner. Returns `null` for an unknown/blank code. Local-only,
+  /// no API call.
+  Future<InventoryItem?> findItemByCode(String code) async {
+    final term = code.trim();
+    if (term.isEmpty) return null;
+    final db = await _db.instance;
+    final rows = await db.rawQuery(
+      '''
+      SELECT i.id, i.sku, i.barcode, i.name, i.unit_of_measure, i.category,
+             i.is_active, COALESCE(SUM(s.quantity_on_hand), 0) AS total
+      FROM $_item i
+      LEFT JOIN $_cache s ON s.inventory_item_id = i.id
+      WHERE i.barcode = ? COLLATE NOCASE OR i.sku = ? COLLATE NOCASE
+      GROUP BY i.id
+      ORDER BY CASE WHEN i.barcode = ? COLLATE NOCASE THEN 0 ELSE 1 END
+      LIMIT 1
+      ''',
+      [term, term, term],
+    );
+    if (rows.isEmpty) return null;
+    return _itemFromAggregateRow(rows.first);
+  }
+
   /// The item's master fields + per-bin on-hand for the detail view, built
   /// entirely from local tables. Returns `null` when the item is not in the
   /// local cache (the offline-first equivalent of a "not found" — it isn't in
@@ -125,6 +152,16 @@ class InventoryLocalDataSource {
       unitOfMeasure: item['unit_of_measure'] as String?,
       category: item['category'] as String?,
     );
+  }
+
+  /// Count of **active** cached items (`is_active = 1`) — the dashboard's
+  /// "Total SKUs" tile. A plain local aggregate (no join), no API call.
+  Future<int> countActiveItems() async {
+    final db = await _db.instance;
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM $_item WHERE is_active = 1',
+    );
+    return Sqflite.firstIntValue(rows) ?? 0;
   }
 
   // ---- Sync upserts ---------------------------------------------------------

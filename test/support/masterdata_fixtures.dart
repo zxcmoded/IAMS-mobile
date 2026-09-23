@@ -127,6 +127,12 @@ class FakeHierarchyLocalDataSource implements HierarchyLocalDataSource {
           .toList(growable: false);
 
   @override
+  Future<Location?> getLocationById(String id) async {
+    final row = _tables['location']![id];
+    return row == null ? null : Location.fromRow(row);
+  }
+
+  @override
   Future<List<Warehouse>> getWarehouses({required String locationId}) async =>
       _tables['warehouse']!
           .values

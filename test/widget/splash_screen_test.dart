@@ -5,6 +5,7 @@ import 'package:iams_mobile/features/auth/data/auth_repository.dart';
 import 'package:iams_mobile/features/auth/presentation/controller/auth_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../support/access_fixtures.dart';
 import '../support/fixtures.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
@@ -23,8 +24,11 @@ void main() {
       rememberedKeyStore: FakeRememberedActivationKeyStore(),
     );
     addTearDown(auth.close);
+    final location = buildSelectedLocationController();
+    addTearDown(location.close);
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: createRouter(auth)));
+    await tester.pumpWidget(
+        MaterialApp.router(routerConfig: createRouter(auth, location)));
     await tester.pump();
 
     expect(find.byType(Image), findsOneWidget);

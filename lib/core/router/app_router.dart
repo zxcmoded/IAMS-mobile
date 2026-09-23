@@ -8,13 +8,17 @@ import '../../features/auth/presentation/controller/auth_state.dart';
 import '../../features/auth/presentation/session_expired/session_expired_screen.dart';
 import '../../features/inventory/presentation/adjust/adjustment_screen.dart';
 import '../../features/inventory/presentation/count/stock_count_screen.dart';
+import '../../features/inventory/presentation/create/create_inventory_screen.dart';
 import '../../features/inventory/presentation/detail/inventory_item_screen.dart';
 import '../../features/inventory/presentation/list/inventory_list_screen.dart';
+import '../../features/inventory/presentation/records/inventory_records_screen.dart';
 import '../../features/inventory/presentation/receive/receive_screen.dart';
 import '../../features/inventory/presentation/shared/mutation_args.dart';
 import '../../features/inventory/presentation/transfer/transfer_screen.dart';
 import '../../features/access/presentation/access_denied/access_denied_screen.dart';
+import '../../features/access/presentation/controller/selected_location_controller.dart';
 import '../../features/access/presentation/home/home_screen.dart';
+import '../../features/access/presentation/location_select/location_select_screen.dart';
 import '../../features/scanning/presentation/manual_entry/manual_entry_screen.dart';
 import '../../features/scanning/presentation/scanner/scanner_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
@@ -34,10 +38,20 @@ import 'go_router_refresh_stream.dart';
 /// unit-testable (no widget pump / DI). Returns the location to redirect to, or
 /// `null` to stay put.
 ///
-/// The key rule for this feature: an `authenticated` user lands on the Home
-/// screen (`/home`, the Main Screen) **immediately** — there is no blocking
-/// `/sync` gate. Sync runs headlessly in the background.
-String? redirectForAuth(AuthStatus status, String location) {
+/// The rules, in order:
+/// * An `authenticated` user with **no** persisted current-location selection
+///   ([hasLocationSelection] `== false`) is sent to the one-time location-select
+///   gate (`/location-select`) and held there until they choose.
+/// * Once a location is selected, the original rule holds unchanged: an
+///   `authenticated` user lands on the Home screen (`/home`, the Main Screen)
+///   **immediately** — there is no blocking `/sync` gate; sync runs headlessly
+///   in the background. `/location-select` remains reachable so the dashboard's
+///   "Change" action can reopen it (the screen itself navigates back to Home).
+String? redirectForAuth(
+  AuthStatus status,
+  bool hasLocationSelection,
+  String location,
+) {
   if (status == AuthStatus.unknown) {
     return location == AppRoutes.splash ? null : AppRoutes.splash;
   }
@@ -54,7 +68,17 @@ String? redirectForAuth(AuthStatus status, String location) {
     return onAuthFlow ? null : AppRoutes.activation;
   }
 
-  // authenticated — land on the Home screen (Main Screen) immediately.
+  // authenticated with no location chosen yet — the one-time gate. Force the
+  // location-select screen and hold there until a selection is persisted.
+  if (!hasLocationSelection) {
+    return location == AppRoutes.locationSelect
+        ? null
+        : AppRoutes.locationSelect;
+  }
+
+  // authenticated + a location is selected — land on Home immediately. Bounce
+  // the pre-app screens to Home; `/location-select` is deliberately NOT bounced
+  // so the "Change location" flow can reach it.
   if (onAuthFlow ||
       location == AppRoutes.splash ||
       location == AppRoutes.sessionExpired) {
@@ -63,12 +87,20 @@ String? redirectForAuth(AuthStatus status, String location) {
   return null;
 }
 
-GoRouter createRouter(AuthController auth) {
+GoRouter createRouter(AuthController auth, SelectedLocationController location) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
-    refreshListenable: GoRouterRefreshStream(auth.stream),
-    redirect: (context, state) =>
-        redirectForAuth(auth.state.status, state.matchedLocation),
+    // Redirects react to both the auth lifecycle and the current-location
+    // selection, so the router refreshes when either changes.
+    refreshListenable: Listenable.merge([
+      GoRouterRefreshStream(auth.stream),
+      GoRouterRefreshStream(location.stream),
+    ]),
+    redirect: (context, state) => redirectForAuth(
+      auth.state.status,
+      location.state.hasSelection,
+      state.matchedLocation,
+    ),
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -81,6 +113,13 @@ GoRouter createRouter(AuthController auth) {
       GoRoute(
         path: AppRoutes.sessionExpired,
         builder: (_, _) => const SessionExpiredScreen(),
+      ),
+      // One-time "Select Current Location" gate, shown right after activation
+      // (and re-openable via the dashboard's "Change" action). A top-level
+      // route — outside the bottom-nav shell — so it covers the whole screen.
+      GoRoute(
+        path: AppRoutes.locationSelect,
+        builder: (_, _) => const LocationSelectScreen(),
       ),
       // Persistent bottom-nav tabs (Home | Inventory | Audit | Settings).
       // `StatefulShellRoute.indexedStack` keeps each branch's own navigation
@@ -149,6 +188,15 @@ GoRouter createRouter(AuthController auth) {
         builder: (_, state) => InventoryItemScreen(
           itemId: state.uri.queryParameters['id'] ?? '',
         ),
+      ),
+      // Offline-first Create Inventory + saved offline records.
+      GoRoute(
+        path: AppRoutes.inventoryCreate,
+        builder: (_, _) => const CreateInventoryScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.inventoryRecords,
+        builder: (_, _) => const InventoryRecordsScreen(),
       ),
       GoRoute(
         path: AppRoutes.receive,

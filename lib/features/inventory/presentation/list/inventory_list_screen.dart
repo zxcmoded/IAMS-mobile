@@ -62,11 +62,23 @@ class _InventoryListViewState extends State<_InventoryListView> {
         title: const Text('Inventory'),
         actions: [
           IconButton(
+            key: const Key('open_offline_records'),
+            tooltip: 'Offline inventory',
+            icon: const Icon(Icons.cloud_off),
+            onPressed: () => context.push(AppRoutes.inventoryRecords),
+          ),
+          IconButton(
             tooltip: 'Scan',
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: () => context.push(AppRoutes.scanner),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('create_inventory'),
+        onPressed: () => context.push(AppRoutes.inventoryCreate),
+        icon: const Icon(Icons.add),
+        label: const Text('Create Inventory'),
       ),
       body: SafeArea(
         child: Column(

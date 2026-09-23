@@ -1,9 +1,12 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../../features/audit/data/audit_schema.dart';
+import '../../features/inventory/data/inventory_record_schema.dart';
 import '../../features/inventory/data/inventory_schema.dart';
 import '../../features/masterdata/data/hierarchy_schema.dart';
 import '../../features/masterdata/data/sync_metadata_schema.dart';
+import 'app_settings_schema.dart';
 
 /// Owns the app's local SQLite database (`iams.db`) — the offline store for the
 /// master-data hierarchy and its sync bookkeeping. Opened lazily and cached, so
@@ -18,7 +21,7 @@ class AppDatabase {
       // ignore: prefer_initializing_formals
       : _databaseName = databaseName;
 
-  static const int _version = 3;
+  static const int _version = 6;
 
   final String _databaseName;
 
@@ -57,6 +60,9 @@ class AppDatabase {
       ...syncMetadataSchema,
       ...inventorySchema, // v2 — F4 offline-first outbox + stock cache
       ...inventoryMasterSchema, // v3 — offline-first inventory read cache
+      ...appSettingsSchema, // v4 — local settings (current-location selection)
+      ...inventoryRecordSchema, // v5 — offline-first Create-Inventory sessions
+      ...auditSchema, // v6 — fully-offline Audit import/export table
     ]) {
       batch.execute(statement);
     }
@@ -85,6 +91,29 @@ class AppDatabase {
         continue v3;
       v3:
       case 3:
+        // v3 → v4: add the app-wide local settings key/value table (holds the
+        // current-location selection persisted after activation).
+        for (final statement in appSettingsSchema) {
+          batch.execute(statement);
+        }
+        continue v4;
+      v4:
+      case 4:
+        // v4 → v5: add the offline-first Create-Inventory session tables
+        // (inventory_record header + inventory_record_line lines).
+        for (final statement in inventoryRecordSchema) {
+          batch.execute(statement);
+        }
+        continue v5;
+      v5:
+      case 5:
+        // v5 → v6: add the fully-offline Audit import/export table.
+        for (final statement in auditSchema) {
+          batch.execute(statement);
+        }
+        continue v6;
+      v6:
+      case 6:
         break;
     }
     await batch.commit(noResult: true);

@@ -8,6 +8,7 @@ class AppRoutes {
   static const sessionExpired = '/session-expired';
 
   static const home = '/home';
+  static const locationSelect = '/location-select';
   static const accessDenied = '/access/denied';
 
   // Bottom navigation tabs
@@ -21,6 +22,9 @@ class AppRoutes {
   // F4 — Inventory Operations
   static const inventory = '/inventory';
   static const inventoryItem = '/inventory/item'; // + ?id, args via `extra`
+  // Offline-first Create Inventory (local-only sessions) + their saved list.
+  static const inventoryCreate = '/inventory/create';
+  static const inventoryRecords = '/inventory/records';
   static const receive = '/inventory/receive';
   static const transfer = '/inventory/transfer';
   static const adjust = '/inventory/adjust';

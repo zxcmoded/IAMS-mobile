@@ -4,22 +4,28 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../auth/data/models/auth_user.dart';
 import '../../../auth/data/models/role.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
-import '../../data/models/scope.dart';
-import 'scope_cubit.dart';
+import '../../../inventory/data/inventory_repository.dart';
+import '../controller/selected_location_controller.dart';
+import 'dashboard_cubit.dart';
 
-/// Home — the Main Screen after activation. Shows the caller's Company, role,
-/// and the Locations they may act within (`/me/scope`), plus entry points into
-/// Scanning and Inventory. There is no company/location switching: a user acts
-/// within their Company + full assigned-Location set at all times.
+/// Home — the offline-first Dashboard shown after activation + location select.
+///
+/// Renders entirely from local state (no network call required): the Company
+/// from the local hierarchy cache, the Current Location resolved locally from
+/// the persisted selection, and an Inventory Summary computed from local SQLite.
+/// The user's identity + role come from the persisted auth session. Changing
+/// the current location is a user-initiated action that reopens the (online)
+/// location-select gate.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ScopeCubit>(
-      create: (_) => sl<ScopeCubit>()..load(),
+    return BlocProvider<DashboardCubit>(
+      create: (_) => sl<DashboardCubit>()..load(),
       child: const _HomeView(),
     );
   }
@@ -35,7 +41,8 @@ Future<void> _confirmForgetDevice(BuildContext context) async {
       key: const Key('forget_device_dialog'),
       title: const Text('Forget this device?'),
       content: const Text(
-        "You'll need to enter your activation key again next time.",
+        "You'll need to enter your activation key and pick a location again "
+        'next time.',
       ),
       actions: [
         TextButton(
@@ -52,7 +59,10 @@ Future<void> _confirmForgetDevice(BuildContext context) async {
     ),
   );
   if (confirmed == true) {
+    // Forgetting the device also forgets the current-location selection, so the
+    // next user of this device gets the one-time location gate from scratch.
     await sl<AuthController>().logoutAndForget();
+    await sl<SelectedLocationController>().clear();
   }
 }
 
@@ -61,6 +71,7 @@ class _HomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = sl<AuthController>().currentSession?.user;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
@@ -74,19 +85,19 @@ class _HomeView extends StatelessWidget {
           ),
         ],
       ),
-      body: BlocBuilder<ScopeCubit, ScopeState>(
+      body: BlocBuilder<DashboardCubit, DashboardState>(
         builder: (context, state) {
           switch (state.status) {
-            case ScopeStatus.initial:
-            case ScopeStatus.loading:
+            case DashboardStatus.loading:
               return const Center(child: CircularProgressIndicator());
-            case ScopeStatus.error:
+            case DashboardStatus.error:
               return _ErrorState(
-                message: state.errorMessage ?? 'Could not load your access.',
-                onRetry: () => context.read<ScopeCubit>().refresh(),
+                message:
+                    state.errorMessage ?? 'Could not load your dashboard.',
+                onRetry: () => context.read<DashboardCubit>().refresh(),
               );
-            case ScopeStatus.loaded:
-              return _LoadedState(scope: state.scope!);
+            case DashboardStatus.loaded:
+              return _LoadedState(state: state, user: user);
           }
         },
       ),
@@ -95,40 +106,31 @@ class _HomeView extends StatelessWidget {
 }
 
 class _LoadedState extends StatelessWidget {
-  const _LoadedState({required this.scope});
+  const _LoadedState({required this.state, required this.user});
 
-  final Scope scope;
+  final DashboardState state;
+  final AuthUser? user;
 
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: () => context.read<ScopeCubit>().refresh(),
+      onRefresh: () => context.read<DashboardCubit>().refresh(),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text('Company', style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 8),
-          _CompanyCard(scope: scope),
+          _CompanyCard(companyName: state.companyName, user: user),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Text('Assigned locations',
-                  style: Theme.of(context).textTheme.labelLarge),
-              const SizedBox(width: 8),
-              if (scope.unrestrictedCompanyAccess)
-                Text(
-                  '(all locations)',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                ),
-            ],
-          ),
+          Text('Current location',
+              style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 8),
-          if (!scope.hasAssignedLocations)
-            const _NoLocations()
-          else
-            ...scope.assignedLocations.map((l) => _LocationTile(location: l)),
+          _CurrentLocationCard(locationName: state.locationName),
+          const SizedBox(height: 24),
+          Text('Inventory summary',
+              style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          _InventorySummary(summary: state.summary),
         ],
       ),
     );
@@ -136,22 +138,27 @@ class _LoadedState extends StatelessWidget {
 }
 
 class _CompanyCard extends StatelessWidget {
-  const _CompanyCard({required this.scope});
+  const _CompanyCard({required this.companyName, required this.user});
 
-  final Scope scope;
+  final String? companyName;
+  final AuthUser? user;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final role = user?.role;
     return Card(
+      key: const Key('dashboard_company_card'),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: scheme.primaryContainer,
           child: Icon(Icons.business, color: scheme.onPrimaryContainer),
         ),
-        title: Text(scope.company.name),
-        subtitle: Text(scope.user.displayName),
-        trailing: _RoleBadge(role: scope.role),
+        title: Text(companyName ?? 'Your company'),
+        subtitle: user == null ? null : Text(user!.displayName),
+        trailing: (role != null && role != Role.unknown)
+            ? _RoleBadge(role: role)
+            : null,
       ),
     );
   }
@@ -176,44 +183,110 @@ class _RoleBadge extends StatelessWidget {
   }
 }
 
-class _LocationTile extends StatelessWidget {
-  const _LocationTile({required this.location});
+class _CurrentLocationCard extends StatelessWidget {
+  const _CurrentLocationCard({required this.locationName});
 
-  final LocationRef location;
+  final String? locationName;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Card(
+      key: const Key('dashboard_location_card'),
       child: ListTile(
         leading: Icon(Icons.location_on_outlined, color: scheme.primary),
-        title: Text(location.name),
+        title: Text(locationName ?? 'Selected location'),
+        // Changing location reopens the (online) selection gate. Push over the
+        // shell; the gate navigates back to the dashboard once a choice is made.
+        trailing: TextButton(
+          key: const Key('dashboard_change_location'),
+          onPressed: () => context.push(AppRoutes.locationSelect),
+          child: const Text('Change'),
+        ),
       ),
     );
   }
 }
 
-class _NoLocations extends StatelessWidget {
-  const _NoLocations();
+class _InventorySummary extends StatelessWidget {
+  const _InventorySummary({required this.summary});
+
+  final InventorySummary summary;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    // IntrinsicHeight bounds the Row's height (to the taller tile) so the
+    // stretched Expanded tiles render at equal height inside the ListView.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _SummaryTile(
+              tileKey: const Key('dashboard_total_skus'),
+              icon: Icons.inventory_2_outlined,
+              label: 'Total SKUs',
+              value: '${summary.totalSkus}',
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _SummaryTile(
+              tileKey: const Key('dashboard_sync_status'),
+              icon: summary.unsyncedCount == 0
+                  ? Icons.cloud_done_outlined
+                  : Icons.cloud_off_outlined,
+              label: 'Sync status',
+              value: '${summary.syncedCount} synced',
+              secondary: '${summary.unsyncedCount} offline',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  const _SummaryTile({
+    required this.tileKey,
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.secondary,
+  });
+
+  final Key tileKey;
+  final IconData icon;
+  final String label;
+  final String value;
+  final String? secondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Card(
+      key: tileKey,
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.wrong_location_outlined, size: 40, color: scheme.outline),
+            Icon(icon, color: scheme.primary),
             const SizedBox(height: 12),
-            Text('No locations assigned',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(value, style: theme.textTheme.headlineSmall),
+            if (secondary != null)
+              Text(
+                secondary!,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: scheme.outline),
+              ),
             const SizedBox(height: 4),
             Text(
-              'You have not been assigned to any locations yet. Contact your '
-              'administrator.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
+              label,
+              style:
+                  theme.textTheme.bodySmall?.copyWith(color: scheme.outline),
             ),
           ],
         ),
@@ -236,7 +309,7 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off,
+            Icon(Icons.error_outline,
                 size: 48, color: Theme.of(context).colorScheme.error),
             const SizedBox(height: 16),
             Text(message, textAlign: TextAlign.center),

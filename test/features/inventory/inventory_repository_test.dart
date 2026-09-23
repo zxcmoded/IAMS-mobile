@@ -195,4 +195,67 @@ void main() {
       expect(await repo.getItemDetail('nope'), isNull);
     });
   });
+
+  group('loadSummary (dashboard)', () {
+    OutboxEntry failed(String item) => receive('$item-x', 'b1', 1).copyWith(
+          status: OutboxStatus.failed,
+        );
+
+    test('counts only active items as Total SKUs', () async {
+      local.seedItem(itemSync('a', sku: 'A'));
+      local.seedItem(itemSync('b', sku: 'B'));
+      local.seedItem(itemSync('c', sku: 'C', isActive: false));
+
+      final summary = await repo.loadSummary();
+
+      expect(summary.totalSkus, 2);
+    });
+
+    test('all synced when there are no pending/failed outbox rows', () async {
+      local.seedItem(itemSync('a', sku: 'A'));
+      local.seedItem(itemSync('b', sku: 'B'));
+
+      final summary = await repo.loadSummary();
+
+      expect(summary.syncedCount, 2);
+      expect(summary.unsyncedCount, 0);
+    });
+
+    test('an item with a pending row counts as one unsynced, not per-row',
+        () async {
+      local.seedItem(itemSync('a', sku: 'A'));
+      local.seedItem(itemSync('b', sku: 'B'));
+      // two pending mutations on the SAME item → collapses to one unsynced item
+      await outbox.insertOutbox(receive('a', 'b1', 1));
+      await outbox.insertOutbox(receive('a', 'b2', 2));
+
+      final summary = await repo.loadSummary();
+
+      expect(summary.unsyncedCount, 1);
+      expect(summary.syncedCount, 1);
+      expect(summary.totalSkus, 2);
+    });
+
+    test('failed rows also count as unsynced', () async {
+      local.seedItem(itemSync('a', sku: 'A'));
+      await outbox.insertOutbox(failed('a'));
+
+      final summary = await repo.loadSummary();
+
+      expect(summary.unsyncedCount, 1);
+      expect(summary.syncedCount, 0);
+    });
+
+    test('synced never goes negative when an outbox item is not active',
+        () async {
+      // No active items, but a stray pending row referencing one.
+      await outbox.insertOutbox(receive('ghost', 'b1', 1));
+
+      final summary = await repo.loadSummary();
+
+      expect(summary.totalSkus, 0);
+      expect(summary.syncedCount, 0); // floored at 0, not -1
+      expect(summary.unsyncedCount, 1);
+    });
+  });
 }

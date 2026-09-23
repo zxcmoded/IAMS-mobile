@@ -3,13 +3,24 @@ import 'package:get_it/get_it.dart';
 
 import '../../features/access/data/scope_api.dart';
 import '../../features/access/data/scope_repository.dart';
+import '../../features/access/data/selected_location_local_data_source.dart';
+import '../../features/access/data/selected_location_repository.dart';
+import '../../features/access/presentation/controller/selected_location_controller.dart';
+import '../../features/access/presentation/home/dashboard_cubit.dart';
 import '../../features/access/presentation/home/scope_cubit.dart';
+import '../../features/access/presentation/location_select/location_select_cubit.dart';
+import '../../features/audit/data/audit_file_service.dart';
+import '../../features/audit/data/audit_local_data_source.dart';
+import '../../features/audit/data/audit_repository.dart';
+import '../../features/audit/presentation/audit_cubit.dart';
 import '../../features/auth/data/auth_api.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/activation/activation_cubit.dart';
 import '../../features/auth/presentation/controller/auth_controller.dart';
 import '../../features/inventory/data/inventory_api.dart';
 import '../../features/inventory/data/inventory_local_data_source.dart';
+import '../../features/inventory/data/inventory_record_local_data_source.dart';
+import '../../features/inventory/data/inventory_record_repository.dart';
 import '../../features/inventory/data/inventory_repository.dart';
 import '../../features/inventory/data/inventory_sync_api.dart';
 import '../../features/inventory/data/inventory_sync_service.dart';
@@ -17,6 +28,8 @@ import '../../features/inventory/data/outbox_local_data_source.dart';
 import '../../features/inventory/data/outbox_repository.dart';
 import '../../features/inventory/presentation/adjust/adjustment_cubit.dart';
 import '../../features/inventory/presentation/count/stock_count_cubit.dart';
+import '../../features/inventory/presentation/create/create_inventory_cubit.dart';
+import '../../features/inventory/presentation/records/inventory_records_cubit.dart';
 import '../../features/inventory/presentation/list/inventory_list_cubit.dart';
 import '../../features/inventory/presentation/receive/receive_cubit.dart';
 import '../../features/inventory/presentation/transfer/transfer_cubit.dart';
@@ -81,6 +94,15 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton<ScopeRepository>(
       () => ScopeRepository(sl<ScopeApi>()));
 
+  // Persisted current-location selection (local SQLite `app_setting` table) +
+  // the app-wide controller that drives the router's one-time location gate.
+  sl.registerLazySingleton<SelectedLocationLocalDataSource>(
+      () => SelectedLocationLocalDataSource(sl<AppDatabase>()));
+  sl.registerLazySingleton<SelectedLocationRepository>(() =>
+      SelectedLocationRepository(sl<SelectedLocationLocalDataSource>()));
+  sl.registerLazySingleton<SelectedLocationController>(() =>
+      SelectedLocationController(sl<SelectedLocationRepository>()));
+
   // Master-data offline store + sync.
   sl.registerLazySingleton<AppDatabase>(() => AppDatabase());
   sl.registerLazySingleton<HierarchyLocalDataSource>(
@@ -123,6 +145,24 @@ Future<void> configureDependencies() async {
         sl<DeviceIdProvider>(),
       ));
 
+  // Offline-first Create Inventory (local-only sessions) — a distinct entity
+  // from the synced inventory_item master / outbox flow, with no sync path yet.
+  // The repository holds no API client, so a saved record cannot reach the
+  // network (it will be picked up by a future Sync feature via isOffline).
+  sl.registerLazySingleton<InventoryRecordLocalDataSource>(
+      () => InventoryRecordLocalDataSource(sl<AppDatabase>()));
+  sl.registerLazySingleton<InventoryRecordRepository>(() =>
+      InventoryRecordRepository(sl<InventoryRecordLocalDataSource>()));
+
+  // Audit (F5) — fully offline: local-only SQLite store + on-device file
+  // import/export. No API client anywhere in this feature by design.
+  sl.registerLazySingleton<AuditLocalDataSource>(
+      () => AuditLocalDataSource(sl<AppDatabase>()));
+  sl.registerLazySingleton<AuditRepository>(
+      () => AuditRepository(sl<AuditLocalDataSource>()));
+  sl.registerLazySingleton<AuditFileService>(
+      () => const PlatformAuditFileService());
+
   // Connectivity + the headless background sync coordinator (replaces the old
   // blocking /sync screen — sync never gates navigation to the Main Screen).
   sl.registerLazySingleton<ConnectivityChecker>(
@@ -140,6 +180,13 @@ Future<void> configureDependencies() async {
         sl<RememberedActivationKeyStore>(),
       ));
   sl.registerFactory<ScopeCubit>(() => ScopeCubit(sl<ScopeRepository>()));
+  sl.registerFactory<LocationSelectCubit>(
+      () => LocationSelectCubit(sl<ScopeRepository>()));
+  sl.registerFactory<DashboardCubit>(() => DashboardCubit(
+        hierarchy: sl<HierarchyRepository>(),
+        inventory: sl<InventoryRepository>(),
+        selectedLocation: sl<SelectedLocationController>(),
+      ));
   sl.registerFactory<ScannerCubit>(() => ScannerCubit(sl<ScanRepository>()));
   sl.registerFactory<InventoryListCubit>(
       () => InventoryListCubit(sl<InventoryRepository>()));
@@ -150,4 +197,14 @@ Future<void> configureDependencies() async {
       () => AdjustmentCubit(sl<OutboxRepository>()));
   sl.registerFactory<StockCountCubit>(
       () => StockCountCubit(sl<OutboxRepository>()));
+  sl.registerFactory<CreateInventoryCubit>(() => CreateInventoryCubit(
+        hierarchy: sl<HierarchyRepository>(),
+        inventory: sl<InventoryRepository>(),
+        records: sl<InventoryRecordRepository>(),
+        selectedLocation: sl<SelectedLocationController>(),
+      ));
+  sl.registerFactory<InventoryRecordsCubit>(
+      () => InventoryRecordsCubit(sl<InventoryRecordRepository>()));
+  sl.registerFactory<AuditCubit>(
+      () => AuditCubit(sl<AuditRepository>(), sl<AuditFileService>()));
 }

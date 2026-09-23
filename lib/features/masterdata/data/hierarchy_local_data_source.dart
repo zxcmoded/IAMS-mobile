@@ -37,6 +37,21 @@ class HierarchyLocalDataSource {
     return rows.map(Location.fromRow).toList(growable: false);
   }
 
+  /// A single location by id (indexed PK lookup), or `null` when it is not in
+  /// the local cache — used by the dashboard to resolve the persisted
+  /// current-location id to a display name without a network call.
+  Future<Location?> getLocationById(String id) async {
+    final db = await _db.instance;
+    final rows = await db.query(
+      'location',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return Location.fromRow(rows.first);
+  }
+
   Future<List<Warehouse>> getWarehouses({required String locationId}) async {
     final db = await _db.instance;
     final rows = await db.query(
