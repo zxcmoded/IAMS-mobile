@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/widgets/gradient_app_bar.dart';
 import '../../data/models/scan_result.dart';
 import 'scanner_cubit.dart';
 
@@ -31,7 +32,7 @@ class _ScannerView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: GradientAppBar(
         title: const Text('Scan'),
         actions: [
           BlocBuilder<ScannerCubit, ScannerState>(

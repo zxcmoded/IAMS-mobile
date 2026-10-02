@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/widgets/gradient_app_bar.dart';
 import '../controller/selected_location_controller.dart';
 import 'location_select_cubit.dart';
 
@@ -34,7 +35,7 @@ class _LocationSelectView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       key: const Key('location_select_screen'),
-      appBar: AppBar(title: const Text('Select location')),
+      appBar: const GradientAppBar(title: Text('Select location')),
       body: BlocBuilder<LocationSelectCubit, LocationSelectState>(
         builder: (context, state) {
           switch (state.status) {

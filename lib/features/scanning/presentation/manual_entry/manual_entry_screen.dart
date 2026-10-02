@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/widgets/gradient_app_bar.dart';
 import '../../data/models/scan_result.dart';
 import '../scanner/scanner_cubit.dart';
 
@@ -47,7 +48,7 @@ class _ManualEntryViewState extends State<_ManualEntryView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Enter code')),
+      appBar: const GradientAppBar(title: Text('Enter code')),
       body: SafeArea(
         child: BlocConsumer<ScannerCubit, ScannerState>(
           listenWhen: (prev, curr) =>

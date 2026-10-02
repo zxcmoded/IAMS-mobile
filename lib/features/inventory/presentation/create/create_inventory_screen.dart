@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/widgets/gradient_app_bar.dart';
 import '../../data/models/inventory_record.dart';
 import '../shared/qty_format.dart';
 import '../widgets/offline_badge.dart';
@@ -88,8 +89,7 @@ class _CreateInventoryViewState extends State<_CreateInventoryView> {
       },
       builder: (context, state) {
         return Scaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.green,
+          appBar: GradientAppBar(
             title: const Text('Create Inventory'),
             actions: const [
               Padding(

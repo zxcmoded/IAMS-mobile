@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/widgets/gradient_app_bar.dart';
 import '../../data/inventory_repository.dart';
 import '../../data/models/inventory_enums.dart';
 import '../../data/models/inventory_item_detail.dart';
@@ -41,7 +42,7 @@ class _ItemView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: GradientAppBar(
         title: const Text('Item'),
         actions: [
           BlocBuilder<InventoryItemCubit, InventoryItemState>(

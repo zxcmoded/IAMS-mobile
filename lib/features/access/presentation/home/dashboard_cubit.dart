@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/sync/sync_coordinator.dart';
 import '../../../inventory/data/inventory_repository.dart';
 import '../../../masterdata/data/hierarchy_repository.dart';
 import '../../../masterdata/data/models/company.dart';
@@ -69,32 +70,46 @@ class DashboardState extends Equatable {
 
 /// Drives the offline-first dashboard: company (local hierarchy), current
 /// location (resolved locally from the persisted id), and the inventory summary
-/// (local SQLite counts). Reloads automatically when the current-location
-/// selection changes (e.g. after "Change"), by subscribing to the
-/// [SelectedLocationController] the same way [SyncCoordinator] subscribes to
-/// auth.
+/// (local SQLite counts). Reloads automatically when:
+///  * the current-location selection changes (e.g. after "Change"), by
+///    subscribing to [SelectedLocationController] the same way
+///    [SyncCoordinator] subscribes to auth; and
+///  * a background hierarchy/inventory sync pass completes, by subscribing to
+///    [SyncCoordinator.onSyncCompleted] — this is what self-corrects the
+///    "Selected location" placeholder into the real name shortly after first
+///    activation, once the headless sync (fired non-blockingly on
+///    authentication — see the doc comment on [SyncCoordinator]) has actually
+///    pulled the location into the local hierarchy cache.
 class DashboardCubit extends Cubit<DashboardState> {
   DashboardCubit({
     required SelectedLocationController selectedLocation,
     required HierarchyRepository hierarchy,
     required InventoryRepository inventory,
+    required SyncCoordinator syncCoordinator,
   })  : _selectedLocation = selectedLocation,
         _hierarchy = hierarchy,
         _inventory = inventory,
+        _syncCoordinator = syncCoordinator,
         super(const DashboardState()) {
     // Reload when the current-location selection changes (e.g. after "Change").
-    _sub = _selectedLocation.stream.listen((_) => load());
+    _selectedLocationSub = _selectedLocation.stream.listen((_) => load());
+    // Reload when a background sync pass finishes, so a location name that
+    // wasn't cached yet at first navigation gets picked up without the user
+    // having to manually pull-to-refresh.
+    _syncSub = _syncCoordinator.onSyncCompleted.listen((_) => load());
   }
 
   // ignore_for_file: prefer_initializing_formals
-  // ^ the three fields above are assigned from named params (not `this._x`
+  // ^ the fields above are assigned from named params (not `this._x`
   //   initializing formals) purely so DI call sites read as `hierarchy:` etc.
 
   final HierarchyRepository _hierarchy;
   final InventoryRepository _inventory;
   final SelectedLocationController _selectedLocation;
+  final SyncCoordinator _syncCoordinator;
 
-  late final StreamSubscription<SelectedLocationState> _sub;
+  late final StreamSubscription<SelectedLocationState> _selectedLocationSub;
+  late final StreamSubscription<void> _syncSub;
 
   Future<void> load() async {
     emit(state.copyWith(status: DashboardStatus.loading));
@@ -152,7 +167,8 @@ class DashboardCubit extends Cubit<DashboardState> {
 
   @override
   Future<void> close() {
-    _sub.cancel();
+    _selectedLocationSub.cancel();
+    _syncSub.cancel();
     return super.close();
   }
 }

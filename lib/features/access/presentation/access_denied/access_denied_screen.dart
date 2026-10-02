@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/gradient_app_bar.dart';
+
 /// Navigation args for the Access Denied screen. Both fields are optional so a
 /// caller can show a generic denial or override the copy for a specific case
 /// (e.g. a `403 access_denied` on an out-of-scope resource).
@@ -28,7 +30,7 @@ class AccessDeniedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Access denied')),
+      appBar: const GradientAppBar(title: Text('Access denied')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

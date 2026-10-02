@@ -46,6 +46,19 @@ class SyncCoordinator {
   StreamSubscription<AuthState>? _sub;
   bool _running = false;
 
+  final StreamController<void> _syncCompletedController =
+      StreamController<void>.broadcast();
+
+  /// Emits once after every completed background-sync **pass** (the online
+  /// path through [triggerBackgroundSync] — success or guarded per-service
+  /// failure either way), so interested listeners (e.g. `DashboardCubit`)
+  /// can re-resolve data that depends on the local cache — such as a
+  /// location name that wasn't synced yet at first navigation — without
+  /// polling or blocking navigation themselves. Does *not* emit for a
+  /// skipped-offline call or a no-op re-entrant call, since neither one can
+  /// have changed the local cache.
+  Stream<void> get onSyncCompleted => _syncCompletedController.stream;
+
   /// Wire the coordinator to the session lifecycle. Call once at startup
   /// (after [AuthController.bootstrap]). Fires an initial sync if the restored
   /// session is already authenticated (the bootstrap emit happens before we can
@@ -65,6 +78,7 @@ class SyncCoordinator {
   Future<void> dispose() async {
     await _sub?.cancel();
     _sub = null;
+    await _syncCompletedController.close();
   }
 
   /// Runs one connectivity-gated background sync pass. Returns once the pass
@@ -85,6 +99,9 @@ class SyncCoordinator {
       ]);
     } finally {
       _running = false;
+      if (!_syncCompletedController.isClosed) {
+        _syncCompletedController.add(null);
+      }
     }
   }
 

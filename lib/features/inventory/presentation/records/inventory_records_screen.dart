@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/navigation/nav_bar_reserved_space.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/widgets/gradient_app_bar.dart';
 import '../../data/models/inventory_record.dart';
 import '../shared/qty_format.dart';
 import '../widgets/offline_badge.dart';
@@ -29,20 +31,25 @@ class _InventoryRecordsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.green,
-        title: const Text('Offline Inventory'),
+      appBar: const GradientAppBar(
+        title: Text('Offline Inventory'),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('records_create'),
-        onPressed: () async {
-          final saved = await context.push<bool>(AppRoutes.inventoryCreate);
-          if (saved == true && context.mounted) {
-            context.read<InventoryRecordsCubit>().refresh();
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Create Inventory'),
+      floatingActionButton: Padding(
+        // See NavBarReservedSpace: 0 when this screen isn't nested under
+        // MainShell (e.g. reached as a top-level route with no pill nav
+        // bar showing), otherwise clears the pill's footprint.
+        padding: EdgeInsets.only(bottom: NavBarReservedSpace.of(context)),
+        child: FloatingActionButton.extended(
+          key: const Key('records_create'),
+          onPressed: () async {
+            final saved = await context.push<bool>(AppRoutes.inventoryCreate);
+            if (saved == true && context.mounted) {
+              context.read<InventoryRecordsCubit>().refresh();
+            }
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('Create Inventory'),
+        ),
       ),
       body: SafeArea(
         child: BlocBuilder<InventoryRecordsCubit, InventoryRecordsState>(

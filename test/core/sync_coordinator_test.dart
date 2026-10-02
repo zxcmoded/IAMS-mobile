@@ -103,6 +103,84 @@ void main() {
     });
   });
 
+  group('onSyncCompleted', () {
+    // Note: the underlying StreamController is a plain (non-`sync`) broadcast
+    // controller, so `add()` delivers to listeners on the next microtask —
+    // the same reason `start()`'s tests below await a zero-duration delay
+    // after triggering before asserting.
+    test('emits once after an online pass that succeeds', () async {
+      final coordinator = build(authController(), FakeConnectivity(true));
+      final events = <void>[];
+      final sub = coordinator.onSyncCompleted.listen(events.add);
+
+      await coordinator.triggerBackgroundSync();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      await sub.cancel();
+    });
+
+    test('emits even when a sync task is guarded-failed', () async {
+      when(() => hierarchy.run()).thenThrow(Exception('boom'));
+      final coordinator = build(authController(), FakeConnectivity(true));
+      final events = <void>[];
+      final sub = coordinator.onSyncCompleted.listen(events.add);
+
+      await coordinator.triggerBackgroundSync();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      await sub.cancel();
+    });
+
+    test('does not emit for a skipped-offline call', () async {
+      final coordinator = build(authController(), FakeConnectivity(false));
+      final events = <void>[];
+      final sub = coordinator.onSyncCompleted.listen(events.add);
+
+      await coordinator.triggerBackgroundSync();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, isEmpty);
+      await sub.cancel();
+    });
+
+    test('does not emit for a no-op re-entrant call', () async {
+      final gate = Completer<void>();
+      when(() => hierarchy.run()).thenAnswer((_) => gate.future);
+      when(() => inventory.run()).thenAnswer((_) => gate.future);
+      final coordinator = build(authController(), FakeConnectivity(true));
+      final events = <void>[];
+      final sub = coordinator.onSyncCompleted.listen(events.add);
+
+      final first = coordinator.triggerBackgroundSync();
+      await Future<void>.delayed(Duration.zero); // let the pass start
+      await coordinator.triggerBackgroundSync(); // no-op, must not emit
+      expect(events, isEmpty);
+
+      gate.complete();
+      await first;
+      await Future<void>.delayed(Duration.zero);
+      expect(events, hasLength(1)); // only the real pass emits, once it ends
+
+      await sub.cancel();
+    });
+
+    test('multiple passes each emit their own event', () async {
+      final coordinator = build(authController(), FakeConnectivity(true));
+      final events = <void>[];
+      final sub = coordinator.onSyncCompleted.listen(events.add);
+
+      await coordinator.triggerBackgroundSync();
+      await Future<void>.delayed(Duration.zero);
+      await coordinator.triggerBackgroundSync();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, hasLength(2));
+      await sub.cancel();
+    });
+  });
+
   group('start', () {
     test('an already-authenticated session triggers an initial pass', () async {
       final auth = authController();

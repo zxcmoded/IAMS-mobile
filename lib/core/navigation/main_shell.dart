@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'nav_bar_reserved_space.dart';
+
 /// Persistent bottom navigation shell for the 4 primary tabs: Home,
 /// Inventory, Audit, Settings.
 ///
@@ -28,9 +30,26 @@ class MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    // Same footprint _ArtisticNavBar reserves for itself below (its own
+    // bottom padding + its height) — computed once, here, so it isn't
+    // re-derived (and risks drifting out of sync) anywhere else.
+    final reservedHeight =
+        bottomInset + _ArtisticNavBar._bottomGap + _ArtisticNavBar._barHeight;
+
     return Scaffold(
       extendBody: true,
-      body: navigationShell,
+      // extendBody lets scrollable body content visually bleed/blur behind
+      // the translucent pill, which is intentional — but because each tab
+      // is its own *nested* Scaffold, that nested Scaffold has no idea the
+      // outer bottomNavigationBar exists at all, so anything it positions
+      // relative to its own bottom edge (most importantly a
+      // floatingActionButton) needs this published so it can pad itself
+      // clear of the pill instead of sitting behind it.
+      body: NavBarReservedSpace(
+        height: reservedHeight,
+        child: navigationShell,
+      ),
       bottomNavigationBar: _ArtisticNavBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: _onDestinationSelected,
@@ -95,6 +114,11 @@ class _ArtisticNavBar extends StatelessWidget {
 
   static const double _barHeight = 64;
   static const double _cornerRadius = 28;
+  // Gap between the pill's bottom edge and the device safe-area inset.
+  // Shared with MainShell.build's reservedHeight calculation above — the
+  // two must stay in lockstep, which is why MainShell reads this constant
+  // directly rather than re-declaring its own copy of "12".
+  static const double _bottomGap = 12;
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +126,7 @@ class _ArtisticNavBar extends StatelessWidget {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 12),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + _bottomGap),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(_cornerRadius),
         child: BackdropFilter(

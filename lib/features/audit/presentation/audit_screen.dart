@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/di/service_locator.dart';
+import '../../../core/widgets/gradient_app_bar.dart';
 import '../data/audit_file_service.dart';
 import '../data/audit_import_parser.dart';
 import '../data/audit_qty_format.dart';
@@ -33,8 +34,7 @@ class _AuditView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.green,
+      appBar: GradientAppBar(
         title: const Text('Audit'),
         actions: [
           BlocBuilder<AuditCubit, AuditState>(

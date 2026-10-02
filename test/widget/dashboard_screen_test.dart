@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iams_mobile/core/di/service_locator.dart';
+import 'package:iams_mobile/core/network/connectivity_checker.dart';
+import 'package:iams_mobile/core/sync/sync_coordinator.dart';
 import 'package:iams_mobile/features/access/presentation/controller/selected_location_controller.dart';
 import 'package:iams_mobile/features/access/presentation/home/dashboard_cubit.dart';
 import 'package:iams_mobile/features/access/presentation/home/home_screen.dart';
@@ -10,7 +12,9 @@ import 'package:iams_mobile/features/auth/data/models/auth_user.dart';
 import 'package:iams_mobile/features/auth/data/models/role.dart';
 import 'package:iams_mobile/features/auth/presentation/controller/auth_controller.dart';
 import 'package:iams_mobile/features/inventory/data/inventory_repository.dart';
+import 'package:iams_mobile/features/inventory/data/inventory_sync_service.dart';
 import 'package:iams_mobile/features/masterdata/data/hierarchy_repository.dart';
+import 'package:iams_mobile/features/masterdata/data/hierarchy_sync_service.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../support/access_fixtures.dart';
@@ -19,6 +23,19 @@ import '../support/inventory_fixtures.dart';
 import '../support/masterdata_fixtures.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
+
+class MockHierarchySyncService extends Mock implements HierarchySyncService {}
+
+class MockInventorySyncService extends Mock implements InventorySyncService {}
+
+/// Never reports online — this widget test never calls
+/// `triggerBackgroundSync()`, so `SyncCoordinator` exists here purely to
+/// satisfy `DashboardCubit`'s constructor; its `onSyncCompleted` stream is
+/// never expected to emit.
+class _NoOpConnectivity implements ConnectivityChecker {
+  @override
+  Future<bool> isOnline() async => false;
+}
 
 AuthSession _sessionWithRole(Role role) => AuthSession(
       accessToken: 'a',
@@ -71,6 +88,12 @@ void main() {
           selectedLocation: controller,
           hierarchy: HierarchyRepository(hierarchyLocal),
           inventory: InventoryRepository(invLocal, outbox),
+          syncCoordinator: SyncCoordinator(
+            auth: auth,
+            connectivity: _NoOpConnectivity(),
+            hierarchySync: MockHierarchySyncService(),
+            inventorySync: MockInventorySyncService(),
+          ),
         ));
     sl.registerLazySingleton<AuthController>(() => auth);
     sl.registerLazySingleton<SelectedLocationController>(() => controller);

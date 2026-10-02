@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/navigation/nav_bar_reserved_space.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/widgets/gradient_app_bar.dart';
 import '../../data/models/inventory_enums.dart';
 import '../../data/models/inventory_item.dart';
 import '../shared/qty_format.dart';
@@ -57,8 +59,7 @@ class _InventoryListViewState extends State<_InventoryListView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.green,
+      appBar: GradientAppBar(
         title: const Text('Inventory'),
         actions: [
           IconButton(
@@ -74,11 +75,17 @@ class _InventoryListViewState extends State<_InventoryListView> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('create_inventory'),
-        onPressed: () => context.push(AppRoutes.inventoryCreate),
-        icon: const Icon(Icons.add),
-        label: const Text('Create Inventory'),
+      floatingActionButton: Padding(
+        // Clears the outer MainShell's floating pill nav bar (this screen's
+        // Scaffold is nested inside it and, per extendBody, has no notion
+        // of the pill's footprint on its own — see NavBarReservedSpace).
+        padding: EdgeInsets.only(bottom: NavBarReservedSpace.of(context)),
+        child: FloatingActionButton.extended(
+          key: const Key('create_inventory'),
+          onPressed: () => context.push(AppRoutes.inventoryCreate),
+          icon: const Icon(Icons.add),
+          label: const Text('Create Inventory'),
+        ),
       ),
       body: SafeArea(
         child: Column(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/gradient_app_bar.dart';
+
 /// Placeholder for the Settings tab. Full settings functionality is out of
 /// scope for the bottom-navigation-bar task — this just gives the nav bar
 /// somewhere real to route to.
@@ -9,7 +11,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: const GradientAppBar(title: Text('Settings')),
       body: const Center(child: Text('Coming soon')),
     );
   }

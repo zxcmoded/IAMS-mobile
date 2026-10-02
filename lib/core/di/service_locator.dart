@@ -186,6 +186,7 @@ Future<void> configureDependencies() async {
         hierarchy: sl<HierarchyRepository>(),
         inventory: sl<InventoryRepository>(),
         selectedLocation: sl<SelectedLocationController>(),
+        syncCoordinator: sl<SyncCoordinator>(),
       ));
   sl.registerFactory<ScannerCubit>(() => ScannerCubit(sl<ScanRepository>()));
   sl.registerFactory<InventoryListCubit>(

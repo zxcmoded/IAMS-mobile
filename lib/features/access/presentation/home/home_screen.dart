@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/widgets/gradient_app_bar.dart';
 import '../../../auth/data/models/auth_user.dart';
 import '../../../auth/data/models/role.dart';
 import '../../../auth/presentation/controller/auth_controller.dart';
@@ -73,7 +74,7 @@ class _HomeView extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = sl<AuthController>().currentSession?.user;
     return Scaffold(
-      appBar: AppBar(
+      appBar: GradientAppBar(
         title: const Text('Dashboard'),
         actions: [
           IconButton(

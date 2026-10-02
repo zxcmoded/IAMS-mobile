@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/widgets/gradient_app_bar.dart';
 import '../shared/mutation_args.dart';
 import '../shared/mutation_outcome_banner.dart';
 import '../shared/mutation_state.dart';
@@ -32,7 +33,7 @@ class MutationScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final done = state.isDone && state.result != null;
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: GradientAppBar(title: Text(title)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
